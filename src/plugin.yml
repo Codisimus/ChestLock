@@ -1,0 +1,14 @@
+name: ChestLock
+main: ChestLock.ChestLock
+version: 1.1
+author: Codisimus
+website: www.codisimus.com
+description: Simple locking solution for Chests, Furnaces, Dispensers, and Doors
+commands:
+  lock:
+    description: used to lock chests/doors or make them unlockable
+    usage: /lock
+           /lock never
+  coowner:
+    description: used to add coowners to a chest
+    usage: /coowner codisimus
