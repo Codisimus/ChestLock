@@ -3,6 +3,7 @@ package ChestLock;
 
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
 
 /**
  * A Safe is a Chest, Furnace, or Dispenser which can be locked
@@ -13,7 +14,7 @@ class Safe {
     protected Block block;
     protected String owner;
     protected boolean locked = true;
-    private String coOwners = ",";
+    protected String coOwners = "";
 
     /**
      * Constructs a new Safe
@@ -58,44 +59,34 @@ class Safe {
 
     /**
      * Returns whether the given player is a coowner
+     * Coowner includes being in a group that has coownership
      * 
      * @param player The Player to be check for coownership
      * @return true if the given player is a coowner
      */
-    public boolean isCoOwner(String player) {
-        if (coOwners.contains(player))
+    public boolean isCoOwner(Player player) {
+        if (coOwners.contains("player:"+player.getName()+","))
             return true;
+        else {
+            String[] split = coOwners.split(",");
+            for (String coOwner: split)
+                if (coOwner.startsWith("group:")) {
+                    String group = coOwner.substring(6);
+                    if (ChestLock.permissions.getUser(player).inGroup(group))
+                        return true;
+                }
+        }
         return false;
     }
-
+    
     /**
-     * Returns the String of coowners
+     * Returns whether the safe is unlockable
      * 
-     * @return The String of coowners
+     * @return true if the safe is unlockable
      */
-    public String getCoOwners() {
-        return coOwners;
-    }
-
-    /**
-     * Adds the name to the coowners
-     * 
-     * @param player The name of the player to be added
-     */
-    public void addCoOwner(String player) {
-        coOwners = coOwners.concat(player+",");
-    }
-
-    /**
-     * Removes the name from the coowners
-     * 
-     * @param player The name of the player to be removed
-     */
-    public boolean removeCoOwner(String player) {
-        if (coOwners.contains(player)) {
-            coOwners = coOwners.replace(player+",", "");
+    public boolean isUnlockable() {
+        if (coOwners.equals("unlockable"))
             return true;
-        }
         return false;
     }
 }

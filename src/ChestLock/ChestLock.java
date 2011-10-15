@@ -1,7 +1,6 @@
 
 package ChestLock;
 
-import com.nijiko.permissions.PermissionHandler;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -20,6 +19,7 @@ import org.bukkit.event.Event.Priority;
 import org.bukkit.event.Event.Type;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import ru.tehkode.permissions.PermissionManager;
 
 /**
  *
@@ -27,15 +27,15 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public class ChestLock extends JavaPlugin {
     protected static Server server;
-    protected static PermissionHandler permissions;
+    protected static PermissionManager permissions;
     protected static PluginManager pm;
-    protected static String own;
-    protected static String lock;
-    protected static String info;
-    protected static String admin;
-    protected static String disown;
-    protected static String adminDisown;
-    protected static String global;
+    protected static int own;
+    protected static int lock;
+    protected static int info;
+    protected static int admin;
+    protected static int disown;
+    protected static int adminDisown;
+    protected static int global;
     protected static boolean lockChests;
     protected static boolean lockFurnaces;
     protected static boolean lockDispensers;
@@ -51,27 +51,20 @@ public class ChestLock extends JavaPlugin {
     @Override
     public void onEnable () {
         server = getServer();
+        pm = server.getPluginManager();
         checkFiles();
         loadConfig();
         SaveSystem.load();
-        pm = server.getPluginManager();
-        pm.registerEvent(Event.Type.PLUGIN_ENABLE, new PluginListener(), Priority.Monitor, this);
-        pm.registerEvent(Type.REDSTONE_CHANGE, new ChestLockBlockListener(), Priority.Normal, this);
-        pm.registerEvent(Type.BLOCK_BREAK, new ChestLockBlockListener(), Priority.Normal, this);
-        pm.registerEvent(Type.PLAYER_INTERACT, new ChestLockPlayerListener(), Priority.Normal, this);
-        pm.registerEvent(Type.PLAYER_COMMAND_PREPROCESS, new ChestLockPlayerListener(), Priority.Normal, this);
+        registerEvents();
         System.out.println("ChestLock "+this.getDescription().getVersion()+" is enabled!");
     }
     
     /**
      * Makes sure all needed files exist
-     * Register.jar is for economy support
+     *
      */
     private void checkFiles() {
-        File file = new File("lib/Register.jar");
-        if (!file.exists() || file.length() < 43000)
-            moveFile("Register.jar");
-        file = new File("plugins/ChestLock/config.properties");
+        File file = new File("plugins/ChestLock/config.properties");
         if (!file.exists())
             moveFile("config.properties");
     }
@@ -87,10 +80,6 @@ public class ChestLock extends JavaPlugin {
             JarFile jar = new JarFile("plugins/ChestLock.jar");
             ZipEntry entry = jar.getEntry(fileName);
             String destination = "plugins/ChestLock/";
-            if (fileName.equals("Register.jar")) {
-                System.out.println("[ChestLock] Moving Files... Please Reload Server");
-                destination = "lib/";
-            }
             File file = new File(destination.substring(0, destination.length()-1));
             if (!file.exists())
                 file.mkdir();
@@ -129,36 +118,64 @@ public class ChestLock extends JavaPlugin {
         PluginListener.useOP = Boolean.parseBoolean(loadValue("UseOP"));
         ChestLockPlayerListener.ownPrice = Integer.parseInt(loadValue("CostToOwn"));
         ChestLockPlayerListener.lockPrice = Integer.parseInt(loadValue("CostToLock"));
-        own = loadValue("OwnTool").toUpperCase();
-        lock = loadValue("LockTool").toUpperCase();
-        info = loadValue("AdminInfoTool").toUpperCase();
-        admin = loadValue("AdminLockTool").toUpperCase();
-        adminDisown = loadValue("AdminLockTool").toUpperCase();
-        global = loadValue("AdminGlobalKey").toUpperCase();
-        disown = loadValue("DisownTool").toUpperCase();
+        own = getID(loadValue("OwnTool"));
+        lock = getID(loadValue("LockTool"));
+        info = getID(loadValue("AdminInfoTool"));
+        admin = getID(loadValue("AdminLockTool"));
+        adminDisown = getID(loadValue("AdminLockTool"));
+        global = getID(loadValue("AdminGlobalKey"));
+        disown = getID(loadValue("DisownTool"));
         lockChests = Boolean.parseBoolean(loadValue("LockableChests"));
         lockFurnaces = Boolean.parseBoolean(loadValue("LockableFurnaces"));
         lockDispensers = Boolean.parseBoolean(loadValue("LockableDispenser"));
         lockWoodDoors = Boolean.parseBoolean(loadValue("LockableWoodDoors"));
         lockIronDoors = Boolean.parseBoolean(loadValue("LockableIronDoors"));
         explosionProtection = Boolean.parseBoolean(loadValue("ExplosionProtection"));
-        ChestLockPlayerListener.permission = loadValue("PermissionMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.lock = loadValue("LockMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.locked = loadValue("LockedMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.unlock = loadValue("UnlockMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.keySet = loadValue("KeySetMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.invalidKey = loadValue("InvalidKeyMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.unlockable = loadValue("UnlockableMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.lockable = loadValue("LockableMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.notown = loadValue("DoNotOwnMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.own = loadValue("OwnMessage").replaceAll("&", "§");
-        ChestLockPlayerListener.disown = loadValue("DisownMessage").replaceAll("&", "§");
-        Register.insufficientFunds = loadValue("InsufficientFundsMessage").replaceAll("&", "§");
+        ChestLockPlayerListener.permission = format(loadValue("PermissionMessage"));
+        ChestLockPlayerListener.lock = format(loadValue("LockMessage"));
+        ChestLockPlayerListener.locked = format(loadValue("LockedMessage"));
+        ChestLockPlayerListener.unlock = format(loadValue("UnlockMessage"));
+        ChestLockPlayerListener.keySet = format(loadValue("KeySetMessage"));
+        ChestLockPlayerListener.invalidKey = format(loadValue("InvalidKeyMessage"));
+        ChestLockPlayerListener.unlockable = format(loadValue("UnlockableMessage"));
+        ChestLockPlayerListener.lockable = format(loadValue("LockableMessage"));
+        ChestLockPlayerListener.notown = format(loadValue("DoNotOwnMessage"));
+        ChestLockPlayerListener.own = format(loadValue("OwnMessage"));
+        ChestLockPlayerListener.disown = format(loadValue("DisownMessage"));
+        ChestLockPlayerListener.limitMsg = format(loadValue("limitMessage"));
+        ChestLockPlayerListener.clear = format(loadValue("ClearMessage"));
+        Register.insufficientFunds = format(loadValue("InsufficientFundsMessage"));
     }
 
     /**
-     * Prints error for missing values
+     * Converts the given String to the equal Material ID
      * 
+     * @param type The given type (Material name or ID)
+     * @return The Material ID
+     */
+    private int getID(String type) {
+        if (type.equalsIgnoreCase("any"))
+            return -1;
+        
+        Material mat = Material.getMaterial(type.toUpperCase());
+        
+        if (mat != null)
+            return mat.getId();
+        
+        try {
+            return Integer.parseInt(type);
+        }
+        catch (Exception notInt) {
+            System.out.println(type+" is not a valid Block type");
+            return -2;
+        }
+    }
+
+    /**
+     * Loads the given key and prints error if the key is missing
+     *
+     * @param key The key to be loaded
+     * @return The String value of the loaded key
      */
     private String loadValue(String key) {
         if (!p.containsKey(key)) {
@@ -166,6 +183,21 @@ public class ChestLock extends JavaPlugin {
             System.err.println("[ChestLock] Please regenerate config file");
         }
         return p.getProperty(key);
+    }
+    
+    /**
+     * Registers events for the ChestLock Plugin
+     *
+     */
+    private void registerEvents() {
+        ChestLockBlockListener blockListener = new ChestLockBlockListener();
+        ChestLockPlayerListener playerListener = new ChestLockPlayerListener();
+        pm.registerEvent(Event.Type.PLUGIN_ENABLE, new PluginListener(), Priority.Monitor, this);
+        pm.registerEvent(Type.WORLD_LOAD, new ChestLockWorldListener(), Priority.Normal, this);
+        pm.registerEvent(Type.REDSTONE_CHANGE, blockListener, Priority.Normal, this);
+        pm.registerEvent(Type.BLOCK_BREAK, blockListener, Priority.Normal, this);
+        pm.registerEvent(Type.PLAYER_INTERACT, playerListener, Priority.Normal, this);
+        pm.registerEvent(Type.PLAYER_COMMAND_PREPROCESS, playerListener, Priority.Normal, this);
     }
 
     /**
@@ -178,48 +210,75 @@ public class ChestLock extends JavaPlugin {
     public static boolean hasPermission(Player player, String type) {
         if (permissions != null)
             return permissions.has(player, "chestlock."+type);
-        else
-            if (type.equals("admin") || type.equals("free"))
-                return player.isOp();
-            else
-                return true;
+        else if (type.equals("admin") || type.equals("free"))
+            return player.isOp();
+        return true;
     }
-
+    
     /**
-     * Checks if the given Material is a Chest, Furnace, or Dispenser
-     * Only returns true if the config settings say to lock that Block type
+     * Returns the Integer value that is the limit of items the given Player can own
+     * Returns -1 if there is no limit
      * 
-     * @param target The Material to be checked
-     * @return true if the Material is a Safe
+     * @param player The Player who is being checked for a limit
+     * @param type The type of item (ex. chest or door)
+     * @return The Integer value that is the limit of items the given Player can own
      */
-    public static boolean isSafe(Material target) {
-        if (target.equals(Material.CHEST) && lockChests)
-            return true;
-        else if (target.equals(Material.BURNING_FURNACE) && lockFurnaces)
-            return true;
-        else if (target.equals(Material.FURNACE) && lockFurnaces)
-            return true;
-        else if (target.equals(Material.DISPENSER) && lockDispensers)
-            return true;
-        return false;
+    public static int getOwnLimit(Player player, String type) {
+        if (permissions == null)
+            return -1;
+
+        if (hasPermission(player, "limit."+type+".-1"))
+            return -1;
+
+        for (int i = 100; i >= 0; i--)
+            if (hasPermission(player, "limit."+type+"."+i))
+                return i;
+        return -1;
     }
 
     /**
-     * Checks if the given Material is a Door
+     * Checks if the given Material ID is a Chest, Furnace, or Dispenser
+     * Only returns true if the config settings say to lock that Block type
+     *
+     * @param id The Material ID to be checked
+     * @return true if the Material is a Safe which can be locked
+     */
+    public static boolean isSafe(int id) {
+        switch (id) {
+            case 23: return lockDispensers; //Material == Dispenser
+            case 54: return lockChests; //Material == Chest
+            case 61: return lockFurnaces; //Material == Furnace
+            case 62: return lockFurnaces; //Material == Burning Furnace
+            default: return false;
+        }
+    }
+
+    /**
+     * Checks if the given Material ID is a Door
      * Only returns true if the config settings say to lock doors
      * 
-     * @param target The Material to be checked
-     * @return true if the Material is a Door
+     * @param id The Material ID to be checked
+     * @return true if the Material is a Door which can be locked
      */
-    public static boolean isDoor(Material target) {
-        if (target.equals(Material.WOOD_DOOR) && lockWoodDoors)
-            return true;
-        else if (target.equals(Material.WOODEN_DOOR) && lockWoodDoors)
-            return true;
-        else if (target.equals(Material.IRON_DOOR) && lockIronDoors)
-            return true;
-        else if (target.equals(Material.IRON_DOOR_BLOCK) && lockIronDoors)
-            return true;
-        return false;
+    public static boolean isDoor(int id) {
+        switch (id) {
+            case 64: return lockWoodDoors; //Material == Wooden Door
+            case 71: return lockIronDoors; //Material == Iron Door
+            case 324: return lockWoodDoors; //Material == Wood Door
+            case 330: return lockIronDoors; //Material == Iron Door
+            default: return false;
+        }
+    }
+    
+    /**
+     * Adds various Unicode characters to a string
+     * 
+     * @param string The string being formated
+     * @return The formatted String
+     */
+    private static String format(String string) {
+        return string.replaceAll("&", "§").replaceAll("<ae>", "æ").replaceAll("<AE>", "Æ")
+                .replaceAll("<o/>", "ø").replaceAll("<O/>", "Ø")
+                .replaceAll("<a>", "å").replaceAll("<A>", "Å");
     }
 }

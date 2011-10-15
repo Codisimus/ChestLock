@@ -1,7 +1,6 @@
 
 package ChestLock;
 
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
@@ -37,16 +36,15 @@ class LockedDoor {
      * @return true if the given block is above or below the door Block
      */
     protected boolean isNeighbor(Block check) {
-        int a = block.getX();
-        int b = block.getY();
-        int c = block.getZ();
-        int x = check.getX();
-        int y = check.getY();
-        int z = check.getZ();
-        if (block.getWorld() == check.getWorld())
-            if (a == x && c == z)
-                if (b == y+1 || b == y-1)
-                    return true;
+        int a = block.getY();
+        int b = check.getY();
+        
+        if (block.getWorld() != check.getWorld() || block.getX() != check.getX() || block.getZ() != check.getZ())
+            return false;
+        
+        if (a == b+1 || a == b-1)
+            return true;
+        
         return false;
     }
 
@@ -58,16 +56,17 @@ class LockedDoor {
      * @return whether the player has the required key
      */
     public boolean hasKey(Player player) {
+        //Return true if the door is unlockable
         if (key == 0)
             return true;
-        else if (player.getItemInHand().getTypeId() == key)
+        
+        int held = player.getItemInHand().getTypeId();
+        
+        //Return true if the Player is holding the key
+        if (held == key)
             return true;
-        else if (ChestLock.hasPermission(player, "admin")) {
-            int global = Material.getMaterial(ChestLock.global).getId();
-            if (player.getItemInHand().getTypeId() == global)
-                return true;
-        }
-        return false;
+        
+        return ChestLock.hasPermission(player, "admin") && player.getItemInHand().getTypeId() == ChestLock.global;
     }
     
     /**
@@ -78,10 +77,11 @@ class LockedDoor {
         //Cancel if the door is unlockable
         if (key == 0)
             return;
-        //Check for iron material
-        if (isIron(block.getType())) {
+
+        //Trigger swing open if Iron Door
+        if (isIron(block.getTypeId())) {
             Door door = (Door)block.getState().getData();
-            //Swing the door open/shut
+
             block.setData((byte)(block.getState().getData().getData()^4));
             Block neighbor;
             if (door.isTopHalf())
@@ -93,16 +93,16 @@ class LockedDoor {
     }
     
     /**
-     * Returns true if the Material is iron
-     * 
-     * @param door The Material of the door block
-     * @return true if the Material is iron
+     * Checks if the given Material ID is an Iron Door
+     *
+     * @param id The Material ID to be checked
+     * @return true if the Material is an Iron Door
      */
-    private boolean isIron(Material door) {
-        if (door.equals(Material.IRON_DOOR))
-            return true;
-        else if (door.equals(Material.IRON_DOOR_BLOCK))
-            return true;
-        return false;
+    public static boolean isIron(int id) {
+        switch (id) {
+            case 71: return true;
+            case 330: return true;
+            default: return false;
+        }
     }
 }

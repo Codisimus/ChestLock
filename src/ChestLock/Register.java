@@ -1,8 +1,8 @@
 
 package ChestLock;
 
-import com.nijikokun.register.payment.Method;
-import com.nijikokun.register.payment.Method.MethodAccount;
+import com.codisimus.chestlock.register.payment.Method;
+import com.codisimus.chestlock.register.payment.Method.MethodAccount;
 import org.bukkit.entity.Player;
 
 /**
@@ -26,8 +26,7 @@ public class Register {
     protected static boolean charge(Player player, double amount, String type) {
         MethodAccount account = econ.getAccount(player.getName());
         if (!account.hasEnough(amount)) {
-            player.sendMessage(insufficientFunds.replaceAll("<price>",
-                    ""+format(amount)).replaceAll("<blocktype>", type));
+            player.sendMessage(insufficientFunds.replaceAll("<price>", format(amount)).replaceAll("<blocktype>", type));
             return false;
         }
         account.subtract(amount);

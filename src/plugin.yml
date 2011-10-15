@@ -1,14 +1,51 @@
 name: ChestLock
-main: ChestLock.ChestLock
-version: 1.1
+main: com.codisimus.plugins.chestlock.ChestLock
+version: 1.3.0
 author: Codisimus
 website: www.codisimus.com
 description: Simple locking solution for Chests, Furnaces, Dispensers, and Doors
+startup: postworld
 commands:
   lock:
-    description: used to lock chests/doors or make them unlockable
-    usage: /lock
-           /lock never
-  coowner:
-    description: used to add coowners to a chest
-    usage: /coowner codisimus
+    description: Used to manage ownership of Chest/Doors
+    usage: /<command> help
+permissions:
+  chestlock.lock:
+    default: true
+    description: Needed to own/lock/unlock a chest/furnace/dispenser/door (/lock)
+  chestlock.usekey:
+    default: true
+    description: Needed to open a locked door
+  chestlock.list.chests:
+    default: true
+    description: Needed to list how many chests/furnaces/dispensers you own and their locations (/lock list chests)
+  chestlock.list.doors:
+    default: true
+    description: Needed to list how many doors you own and their keys and locations (/lock list doors)
+  chestlock.list.owner:
+    default: true
+    description: Needed to see who the owner and CoOwners are of the target chest/furnace/dispenser/door (/lock list owner)
+  chestlock.list.clear:
+    default: true
+    description: Needed to disown all of your chests/furnaces/dispensers/doors (/lock list clear)
+  chestlock.coowner:
+    default: true
+    description: Needed to add a CoOwner to your chest/furnace/dispenser (/lock coowner)
+  chestlock.free:
+    default: op
+    description: Lock chests/furnaces/dispensers free of charge
+  chestlock.admin:
+    default: op
+    description: Needed to access other Players' chests/furnaces/dispensers/doors
+  chestlock.chest.-1:
+    default: true
+    description: limit the number of Chests a player can own. -1 = unlimited. -1 can be changed to any number 0 - 100. Largest number is taken if player has more than 1 node (-1 is considered larger than 100)
+  chestlock.furnace.-1:
+    default: true
+    description: limit the number of Furnaces a player can own. -1 = unlimited. -1 can be changed to any number 0 - 100. Largest number is taken if player has more than 1 node (-1 is considered larger than 100)
+  chestlock.dispenser.-1:
+    default: true
+    description: limit the number of Dispensers a player can own. -1 = unlimited. -1 can be changed to any number 0 - 100. Largest number is taken if player has more than 1 node (-1 is considered larger than 100)
+  chestlock.door.-1:
+    default: true
+    description: limit the number of Doors a player can own. -1 = unlimited. -1 can be changed to any number 0 - 100. Largest number is taken if player has more than 1 node (-1 is considered larger than 100)

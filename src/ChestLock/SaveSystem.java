@@ -10,7 +10,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.LinkedList;
 import org.bukkit.World;
-import org.bukkit.World.Environment;
 import org.bukkit.block.Block;
 
 /**
@@ -48,14 +47,14 @@ class SaveSystem {
         }
         catch (Exception e) {
             save = false;
-            System.out.println("[ChestLock] Load failed, saving turned off to prevent loss of data");
+            System.err.println("[ChestLock] Load failed, saving turned off to prevent loss of data");
             e.printStackTrace();
         }
     }
     
     /**
      * Reads save file to load ChestLock data
-     * Saving is turned off if an error occurs
+     * Saving is turned off (or line is deleted) if an error occurs
      */
     private static void loadFromFile() throws Exception {
         new File("plugins/ChestLock").mkdir();
@@ -64,45 +63,46 @@ class SaveSystem {
         String line = "";
         while ((line = bReader.readLine()) != null) {
             String[] split = line.split(";");
-            String owner = split[0];
-            int x = Integer.parseInt(split[2]);
-            int y = Integer.parseInt(split[3]);
-            int z = Integer.parseInt(split[4]);
-            World world;
-            Block block;
-            boolean nether = false;
-            if (split[1].endsWith("~NETHER")) {
-                nether = true;
-                split[1] = split[1].replace("~NETHER", "");
-            }
-            try {
-                world = ChestLock.server.getWorld(split[1]);
-                block = world.getBlockAt(x, y, z);
-            }
-            catch (NullPointerException newWorld) {
-                if (nether)
-                    world = ChestLock.server.createWorld(split[1], World.Environment.NETHER);
-                else
-                    world = ChestLock.server.createWorld(split[1], World.Environment.NORMAL);
-                block = world.getBlockAt(x, y, z);
-            }
-            if (ChestLock.isDoor(block.getType())) {
-                int key = Integer.parseInt(split[5]);
-                LockedDoor door = new LockedDoor(owner, block, key);
-                doors.add(door);
-            }
-            else if (ChestLock.isSafe(block.getType())) {
-                String coOwners = split[5];
-                Safe safe = new Safe(owner, block, coOwners);
-                safes.add(safe);
-            }
-            else {
-                System.err.println("[ChestLock] Invalid blocktype for "+line);
-                if (autoDelete)
-                    System.err.println("[ChestLock] AutoDelete set to true, errored data deleted");
+            if (split[1].endsWith("~NETHER"))
+                split[1].replace("~NETHER", "");
+            World world = ChestLock.server.getWorld(split[1]);
+            if (world != null) {
+                String owner = split[0];
+                int x = Integer.parseInt(split[2]);
+                int y = Integer.parseInt(split[3]);
+                int z = Integer.parseInt(split[4]);
+                Block block = world.getBlockAt(x, y, z);
+                int id = block.getTypeId();
+                if (ChestLock.isDoor(id)) {
+                    int key = Integer.parseInt(split[5]);
+                    LockedDoor door = new LockedDoor(owner, block, key);
+                    doors.add(door);
+                }
+                else if (ChestLock.isSafe(id)) {
+                    String coOwners = split[5];
+                    if (coOwners.contains("unlockable"))
+                            coOwners = "unlockable";
+                    else {
+                        if (coOwners.contains(",any,"))
+                            coOwners = coOwners.replaceAll(",any,", ",");
+                        if (!(coOwners.startsWith("player:") || coOwners.startsWith("group:"))) {
+                            coOwners = coOwners.replaceAll(",", ",player:");
+                            coOwners = coOwners.substring(0, coOwners.length()-7);
+                        }
+                        if (coOwners.startsWith(","))
+                            coOwners = "CoOwners:"+coOwners;
+                    }
+                    Safe safe = new Safe(owner, block, coOwners);
+                    safes.add(safe);
+                }
                 else {
-                    save = false;
-                    System.err.println("[ChestLock] Saving turned off to prevent loss of data");
+                    System.err.println("[ChestLock] Invalid blocktype for "+line);
+                    if (autoDelete)
+                        System.err.println("[ChestLock] AutoDelete set to true, errored data deleted");
+                    else {
+                        save = false;
+                        System.err.println("[ChestLock] Saving turned off to prevent loss of data");
+                    }
                 }
             }
         }
@@ -128,6 +128,66 @@ class SaveSystem {
     }
     
     /**
+     * Reads save file to load ChestLock data for given World
+     * Saving is turned off (or line is deleted) if an error occurs
+     */
+    protected static void loadData(World world) {
+        try {
+            new File("plugins/ChestLock").mkdir();
+            new File("plugins/ChestLock/chestlock.save").createNewFile();
+            BufferedReader bReader = new BufferedReader(new FileReader("plugins/ChestLock/chestlock.save"));
+            String line = "";
+            while ((line = bReader.readLine()) != null) {
+                String[] split = line.split(";");
+                if (split[1].equals(world.getName())) {
+                    String owner = split[0];
+                    int x = Integer.parseInt(split[2]);
+                    int y = Integer.parseInt(split[3]);
+                    int z = Integer.parseInt(split[4]);
+                    Block block = world.getBlockAt(x, y, z);
+                    int id = block.getTypeId();
+                    if (ChestLock.isDoor(id)) {
+                        int key = Integer.parseInt(split[5]);
+                        LockedDoor door = new LockedDoor(owner, block, key);
+                        doors.add(door);
+                    }
+                    else if (ChestLock.isSafe(id)) {
+                        String coOwners = split[5];
+                        if (coOwners.contains("unlockable"))
+                            coOwners = "unlockable";
+                        else {
+                            if (coOwners.contains(",any,"))
+                                coOwners = coOwners.replaceAll(",any,", ",");
+                            if (!(coOwners.startsWith("player:") || coOwners.startsWith("group:"))) {
+                                coOwners = coOwners.replaceAll(",", ",player:");
+                                coOwners = coOwners.substring(0, coOwners.length()-7);
+                            }
+                            if (coOwners.startsWith(","))
+                                coOwners = "CoOwners:"+coOwners;
+                        }
+                        Safe safe = new Safe(owner, block, coOwners);
+                        safes.add(safe);
+                    }
+                    else {
+                        System.err.println("[ChestLock] Invalid blocktype for "+line);
+                        if (autoDelete)
+                            System.err.println("[ChestLock] AutoDelete set to true, errored data deleted");
+                        else {
+                            save = false;
+                            System.err.println("[ChestLock] Saving turned off to prevent loss of data");
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            save = false;
+            System.err.println("[ChestLock] Load failed, saving turned off to prevent loss of data");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
      * Writes data to save file
      * Old file is overwritten
      */
@@ -136,25 +196,17 @@ class SaveSystem {
         for(Safe safe : safes) {
             bWriter.write(safe.owner.concat(";"));
             Block chest = safe.block;
-            World world = chest.getWorld();
-            if (world.getEnvironment().equals(Environment.NETHER))
-                bWriter.write(chest.getWorld().getName()+"~NETHER;");
-            else
-                bWriter.write(chest.getWorld().getName()+";");
+            bWriter.write(chest.getWorld().getName()+";");
             bWriter.write(chest.getX()+";");
             bWriter.write(chest.getY()+";");
             bWriter.write(chest.getZ()+";");
-            bWriter.write(safe.getCoOwners()+";");
+            bWriter.write(safe.coOwners+";");
             bWriter.newLine();
         }
         for(LockedDoor door : doors) {
             bWriter.write(door.owner.concat(";"));
             Block block = door.block;
-            World world = block.getWorld();
-            if (world.getEnvironment().equals(Environment.NETHER))
-                bWriter.write(block.getWorld().getName()+"~NETHER;");
-            else
-                bWriter.write(block.getWorld().getName()+";");
+            bWriter.write(block.getWorld().getName()+";");
             bWriter.write(block.getX()+";");
             bWriter.write(block.getY()+";");
             bWriter.write(block.getZ()+";");
@@ -167,10 +219,35 @@ class SaveSystem {
     /**
      * Returns the LinkedList of saved Safes
      * 
-     * @return the LinkedList of saved Safes
+     * @return The LinkedList of saved Safes
      */
     public static LinkedList<Safe> getSafes() {
         return safes;
+    }
+    
+    /**
+     * Returns the LinkedList of Safes owned by the given Player
+     * 
+     * @return The LinkedList of Safes owned by the given Player
+     */
+    public static LinkedList<Safe> getOwnedSafes(String player) {
+        LinkedList<Safe> ownedSafes = new LinkedList<Safe>();
+        for (Safe safe: safes)
+            if (safe.owner.equals(player))
+                ownedSafes.add(safe);
+        return ownedSafes;
+    }
+    
+    /**
+     * Returns the Safe of given block
+     * 
+     * @return The Safe of given block
+     */
+    public static Safe findSafe(Block block) {
+        for (Safe safe: safes)
+            if (safe.block.getLocation().equals(block.getLocation()) || safe.isNeighbor(block))
+                return safe;
+        return null;
     }
 
     /**
@@ -179,13 +256,7 @@ class SaveSystem {
      * @param safe The Safe to be added
      */
     protected static void addSafe(Safe safe) {
-        try {
-            safes.add(safe);
-            save();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+        safes.add(safe);
     }
 
     /**
@@ -195,16 +266,40 @@ class SaveSystem {
      */
     protected static void removeSafe(Safe safe) {
         safes.remove(safe);
-        save();
     }
     
     /**
      * Returns the LinkedList of saved Doors
      * 
-     * @return the LinkedList of saved Doors
+     * @return The LinkedList of saved Doors
      */
     public static LinkedList<LockedDoor> getDoors() {
         return doors;
+    }
+    
+    /**
+     * Returns the LinkedList of LockedDoors owned by the given Player
+     * 
+     * @return The LinkedList of LockedDoors owned by the given Player
+     */
+    public static LinkedList<LockedDoor> getOwnedDoors(String player) {
+        LinkedList<LockedDoor> ownedDoors = new LinkedList<LockedDoor>();
+        for (LockedDoor door: doors)
+            if (door.owner.equals(player))
+                ownedDoors.add(door);
+        return ownedDoors;
+    }
+    
+    /**
+     * Returns the LockedDoor of given block
+     * 
+     * @return The LockedDoor of given block
+     */
+    public static LockedDoor findDoor(Block block) {
+        for (LockedDoor door: doors)
+            if (door.block.getLocation().equals(block.getLocation()) || door.isNeighbor(block))
+                return door;
+        return null;
     }
     
     /**
@@ -213,13 +308,7 @@ class SaveSystem {
      * @param door The LockedDoor to be added
      */
     protected static void addDoor(LockedDoor door) {
-        try {
-            doors.add(door);
-            save();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+        doors.add(door);
     }
 
     /**
@@ -229,6 +318,20 @@ class SaveSystem {
      */
     protected static void removeDoor(LockedDoor door) {
         doors.remove(door);
+    }
+    
+    /**
+     * Removes the LockedDoors/Safes that are owned by the given player
+     * 
+     * @param player The name of the Player
+     */
+    protected static void clear(String player) {
+        for (Safe safe: safes)
+            if (safe.owner.equals(player))
+                safes.remove(safe);
+        for (LockedDoor door: doors)
+            if (door.owner.equals(player))
+                safes.remove(door);
         save();
     }
 
