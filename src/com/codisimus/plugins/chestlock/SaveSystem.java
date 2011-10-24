@@ -33,27 +33,34 @@ public class SaveSystem {
      */
     public static void load(World world) {
         try {
+            //Open save file in BufferedReader
             new File("plugins/ChestLock").mkdir();
             new File("plugins/ChestLock/chestlock.save").createNewFile();
             BufferedReader bReader = new BufferedReader(new FileReader("plugins/ChestLock/chestlock.save"));
+
+            //Convert each line into data until all lines are read
             String line = "";
             while ((line = bReader.readLine()) != null) {
                 String[] split = line.split(";");
+                
                 if (split[1].endsWith("~NETHER"))
                     split[1].replace("~NETHER", "");
+                
                 if (world == null)
                     world = ChestLock.server.getWorld(split[1]);
+                
                 if (world != null) {
                     String owner = split[0];
+                    
                     int x = Integer.parseInt(split[2]);
                     int y = Integer.parseInt(split[3]);
                     int z = Integer.parseInt(split[4]);
                     Block block = world.getBlockAt(x, y, z);
+                    
+                    //Create a LockedDoor if the Block is a door
                     int id = block.getTypeId();
                     if (ChestLock.isDoor(id)) {
-                        int key = Integer.parseInt(split[5]);
-                        LockedDoor door = new LockedDoor(owner, block, key);
-                        doors.add(door);
+                        doors.add(new LockedDoor(owner, block, Integer.parseInt(split[5])));
                         return;
                     }
                     
@@ -116,8 +123,12 @@ public class SaveSystem {
      */
     public static void save() {
         try {
+            //Open save file for writing data
             BufferedWriter bWriter = new BufferedWriter(new FileWriter("plugins/ChestLock/chestlock.save"));
+            
+            //Write all Chest data to file
             for(Safe safe: chests) {
+                //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
                 bWriter.write(safe.owner.concat(";"));
                 Block chest = safe.block;
                 bWriter.write(chest.getWorld().getName().concat(";"));
@@ -140,9 +151,13 @@ public class SaveSystem {
                         bWriter.write(group.concat(","));
                 bWriter.write(";");
                 
+                //Write each OwnedChunk on its own line
                 bWriter.newLine();
             }
+            
+            //First write all Furnace data to file
             for(Safe safe: furnaces) {
+                //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
                 bWriter.write(safe.owner.concat(";"));
                 Block furnace = safe.block;
                 bWriter.write(furnace.getWorld().getName().concat(";"));
@@ -165,9 +180,13 @@ public class SaveSystem {
                         bWriter.write(group.concat(","));
                 bWriter.write(";");
                 
+                //Write each OwnedChunk on its own line
                 bWriter.newLine();
             }
+            
+            //First write all Dispenser data to file
             for(Safe safe: dispensers) {
+                //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
                 bWriter.write(safe.owner.concat(";"));
                 Block dispenser = safe.block;
                 bWriter.write(dispenser.getWorld().getName().concat(";"));
@@ -190,9 +209,13 @@ public class SaveSystem {
                         bWriter.write(group.concat(","));
                 bWriter.write(";");
                 
+                //Write each OwnedChunk on its own line
                 bWriter.newLine();
             }
+            
+            //First write all Door data to file
             for(LockedDoor door: doors) {
+                //Write data in format "owner;x;y;z;key;
                 bWriter.write(door.owner.concat(";"));
                 Block block = door.block;
                 bWriter.write(block.getWorld().getName()+";");
@@ -200,8 +223,11 @@ public class SaveSystem {
                 bWriter.write(block.getY()+";");
                 bWriter.write(block.getZ()+";");
                 bWriter.write(door.key+";");
+                
+                //Write each OwnedChunk on its own line
                 bWriter.newLine();
             }
+            
             bWriter.close();
         }
         catch (Exception saveFailed) {
@@ -218,9 +244,12 @@ public class SaveSystem {
      */
     public static LinkedList<Safe> getOwnedChests(String player) {
         LinkedList<Safe> ownedChests = new LinkedList<Safe>();
+        
+        //Iterate through all Chests and add the ones that the Player owns
         for (Safe safe: chests)
             if (safe.owner.equals(player))
                 ownedChests.add(safe);
+        
         return ownedChests;
     }
     
@@ -232,9 +261,12 @@ public class SaveSystem {
      */
     public static LinkedList<Safe> getOwnedFurnaces(String player) {
         LinkedList<Safe> ownedChests = new LinkedList<Safe>();
+        
+        //Iterate through all Furnaces and add the ones that the Player owns
         for (Safe safe: chests)
             if (safe.owner.equals(player))
                 ownedChests.add(safe);
+        
         return ownedChests;
     }
     
@@ -246,9 +278,12 @@ public class SaveSystem {
      */
     public static LinkedList<Safe> getOwnedDispensers(String player) {
         LinkedList<Safe> ownedChests = new LinkedList<Safe>();
+        
+        //Iterate through all Dispensers and add the ones that the Player owns
         for (Safe safe: chests)
             if (safe.owner.equals(player))
                 ownedChests.add(safe);
+        
         return ownedChests;
     }
     
@@ -260,29 +295,44 @@ public class SaveSystem {
      */
     public static Safe findSafe(Block block) {
         switch (block.getTypeId()) {
-            case 23:
+            case 23: //Material == Dispenser
+                //Iterate through all Dispensers to find the one for the Block
                 for (Safe safe: dispensers)
                     if (safe.block.equals(block))
                         return safe;
-                break;
-            case 54:
+                
+                //Return null because the block is not owned
+                return null;
+                
+            case 54: //Material == Chest
+                //Iterate through all Chests to find the one for the Block
                 for (Safe safe: chests)
                     if (safe.block.equals(block) || safe.isNeighbor(block))
                         return safe;
-                break;
-            case 61:
+                
+                //Return null because the block is not owned
+                return null;
+                
+            case 61: //Material == Furnace
+                //Iterate through all Furnaces to find the one for the Block
                 for (Safe safe: furnaces)
                     if (safe.block.equals(block))
                         return safe;
-                break;
-            case 62:
+                
+                //Return null because the block is not owned
+                return null;
+                
+            case 62: //Material == Furnace
+                //Iterate through all Furnaces to find the one for the Block
                 for (Safe safe: furnaces)
                     if (safe.block.equals(block))
                         return safe;
-                break;
+                
+                //Return null because the block is not owned
+                return null;
+                
             default: return null;
         }
-        return null;
     }
     
     /**
@@ -322,9 +372,12 @@ public class SaveSystem {
      */
     public static LinkedList<LockedDoor> getOwnedDoors(String player) {
         LinkedList<LockedDoor> ownedDoors = new LinkedList<LockedDoor>();
+        
+        //Iterate through all Doors and add the ones that the Player owns
         for (LockedDoor door: doors)
             if (door.owner.equals(player))
                 ownedDoors.add(door);
+        
         return ownedDoors;
     }
     
@@ -335,11 +388,16 @@ public class SaveSystem {
      * @return The LockedDoor of given Block
      */
     public static LockedDoor findDoor(Block block) {
+        //Return null is the Block is not a Door
         if (!ChestLock.isDoor(block.getTypeId()))
             return null;
+        
+        //Iterate through all Furnaces to find the one for the Block
         for (LockedDoor door: doors)
-            if (door.block.getLocation().equals(block.getLocation()) || door.isNeighbor(block))
+            if (door.block.equals(block) || door.isNeighbor(block))
                 return door;
+        
+        //Return null because the block is not owned
         return null;
     }
     
@@ -349,18 +407,30 @@ public class SaveSystem {
      * @param player The name of the Player
      */
     public static void clear(String player) {
+        //Iterate through all Chests
         for (Safe safe: chests)
+            //Remove the Chest if it is owned by the Player
             if (safe.owner.equals(player))
                 chests.remove(safe);
+        
+        //Iterate through all Furnaces
         for (Safe safe: furnaces)
+            //Remove the Furnace if it is owned by the Player
             if (safe.owner.equals(player))
                 chests.remove(safe);
+        
+        //Iterate through all Dispensers
         for (Safe safe: dispensers)
+            //Remove the Dispenser if it is owned by the Player
             if (safe.owner.equals(player))
                 chests.remove(safe);
+        
+        //Iterate through all Doors
         for (LockedDoor door: doors)
+            //Remove the Door if it is owned by the Player
             if (door.owner.equals(player))
                 doors.remove(door);
+        
         save();
     }
 }

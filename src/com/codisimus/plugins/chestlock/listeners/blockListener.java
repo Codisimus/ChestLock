@@ -1,5 +1,6 @@
 package com.codisimus.plugins.chestlock.listeners;
 
+import com.codisimus.plugins.chestlock.ChestLock;
 import com.codisimus.plugins.chestlock.LockedDoor;
 import com.codisimus.plugins.chestlock.Safe;
 import com.codisimus.plugins.chestlock.SaveSystem;
@@ -19,15 +20,14 @@ public class blockListener extends BlockListener {
 
     @Override
     public void onBlockRedstoneChange(BlockRedstoneEvent event) {
-        Block block = event.getBlock();
-        
-        LockedDoor lockedDoor = SaveSystem.findDoor(block);
+        //Allow if Block is not a LockedDoor
+        LockedDoor lockedDoor = SaveSystem.findDoor(event.getBlock());
         if (lockedDoor == null)
             return;
         
         Door door = (Door)lockedDoor.block.getState().getData();
         
-        //Allows redstone to close a door but not open it
+        //Allow Redstone to close a Door but not open it
         if (!door.isOpen() && lockedDoor.key != 0)
             event.setNewCurrent(event.getOldCurrent());
     }
@@ -36,24 +36,34 @@ public class blockListener extends BlockListener {
     public void onBlockBreak (BlockBreakEvent event) {
         Block block = event.getBlock();
         Player player = event.getPlayer();
-
-        LockedDoor door = SaveSystem.findDoor(block);
         
-        if (door != null)
-            if (door.isOwner(player))
-                SaveSystem.doors.remove(door);
-            else
+        //Check if the Block is a LockedDoor
+        LockedDoor door = SaveSystem.findDoor(block);
+        if (door != null) {
+            //Cancel the event if the Player is not the Owner of the LockedDoor or has the admin node
+            if (!player.getName().equals(door.owner) && !ChestLock.hasPermission(player, "admin")) {
                 event.setCancelled(true);
-        else {
-            Safe safe = SaveSystem.findSafe(block);
-
-            if (safe == null)
                 return;
-
-            if (safe.isOwner(player))
-                SaveSystem.removeSafe(safe);
-            else
-                event.setCancelled(true);
+            }
+            
+            //Delete the LockedDoor from the saved data
+            SaveSystem.doors.remove(door);
+            return;
         }
+        
+        //Return if the Block is not a Safe
+        Safe safe = SaveSystem.findSafe(block);
+        if (safe == null)
+            return;
+
+        //Cancel the event if the Player is not the Owner of the Safe
+        if (safe.isOwner(player)) {
+            event.setCancelled(true);
+            return;
+        }
+        
+        //Delete the Safe from the saved data
+        SaveSystem.removeSafe(safe);
+        return;
     }
 }

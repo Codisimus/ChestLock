@@ -1,7 +1,6 @@
 package com.codisimus.plugins.chestlock;
 
 import java.util.LinkedList;
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
@@ -21,7 +20,7 @@ public class Safe {
     /**
      * Constructs a new Safe
      * 
-     * @param owner The name of the owner of the Safe
+     * @param owner The name of the Owner of the Safe
      * @param safe The Block of the Safe
      * @param lockable The boolean value of whether the Safe is lockable
      * @param coOwners The list of the CoOwners of the Safe
@@ -38,7 +37,7 @@ public class Safe {
     /**
      * Constructs a new Safe
      * 
-     * @param owner The name of the owner of the Safe
+     * @param owner The name of the Owner of the Safe
      * @param safe The Block of the Safe
      */
     public Safe(String owner, Block block) {
@@ -53,20 +52,24 @@ public class Safe {
      * @param block The Block of the Safe
      * @return true if the given Block is left or right of the Safe Block
      */
-    public boolean isNeighbor(Block safe) {
-        if (block.getTypeId() != 54 || safe.getTypeId() != 54)
+    public boolean isNeighbor(Block block2) {
+        //Return false if either block is not a Chest
+        if (block.getTypeId() != 54 || block2.getTypeId() != 54)
             return false;
         
-        if (block.getY() != safe.getY())
+        //Return false if Blocks are not in the same y-axis
+        if (block.getY() != block2.getY())
             return false;
         
-        if (block.getWorld() != safe.getWorld())
+        //Return false if Blocks are not in the same World
+        if (block.getWorld() != block2.getWorld())
             return false;
         
+        //Return true if the Blocks are side by side
         int a = block.getX();
         int c = block.getZ();
-        int x = safe.getX();
-        int z = safe.getZ();
+        int x = block2.getX();
+        int z = block2.getZ();
         if (a == x)
             return c == z+1 || c == z-1;
         else if (c == z)
@@ -93,6 +96,7 @@ public class Safe {
             if (ChestLock.permissions.getUser(player).inGroup(group))
                 return true;
         
+        //Player is not a CoOwner
         return false;
     }
     
@@ -103,12 +107,15 @@ public class Safe {
      * @return true if the Player is the owner or has the admin node
      */
     public boolean isOwner(Player player) {
+        //Return false if there is no Player
         if (player == null)
             return false;
         
+        //Return true if the Player is the Owner
         if (player.getName().equals(owner))
             return true;
         
+        //Return true if the Player has the admin node
         return ChestLock.hasPermission(player, "admin");
     }
 }

@@ -38,31 +38,32 @@ public class playerListener extends PlayerListener {
         Block block = event.getClickedBlock();
         Player player = event.getPlayer();
         
+        //Check if the Block is a LockedDoor
         LockedDoor lockedDoor = SaveSystem.findDoor(block);
         if (lockedDoor != null) {
+            //Cancel if the Player does not have permission to open Locked Doors
             if (!ChestLock.hasPermission(player, "usekey")) {
                 player.sendMessage(permissionMsg);
                 return;
             }
             
-            int id = block.getTypeId();
-            
-            if (id == 71 || id == 330) //Material == Iron Door
-                if (lockedDoor.hasKey(player)) {
-                    Door ironDoor = (Door)block.getState().getData();
-                    ironDoor.setOpen(!ironDoor.isOpen());
+            //Only open/shut the Door if the Player is holding the key
+            if (lockedDoor.hasKey(player)) {
+                int id = block.getTypeId();
+                if (id == 71 || id == 330) {
+                    Door door = (Door)block.getState().getData();
+                    door.setOpen(!door.isOpen());
                 }
-                else
-                    player.sendMessage(invalidKeyMsg);
-            else if (id == 64 || id == 324) //Material == Wood Door
-                if (!lockedDoor.hasKey(player)) {
-                    event.setCancelled(true);
-                    player.sendMessage(invalidKeyMsg);
-                }
+            }
+            else {
+                event.setCancelled(true);
+                player.sendMessage(invalidKeyMsg);
+            }
             
             return;
         }
         
+        //Get the Type of the Block
         String type = block.getType().toString().toLowerCase();
         if (type.equals("burning_furnace"))
             type = "furnace";
@@ -71,6 +72,7 @@ public class playerListener extends PlayerListener {
         
         Safe safe = SaveSystem.findSafe(block);
         if (safe == null) {
+            //Cancel if the Player does not have permission to use the command
             if (!ChestLock.hasPermission(player, "lock")) {
                 player.sendMessage(permissionMsg);
                 return;
@@ -131,6 +133,7 @@ public class playerListener extends PlayerListener {
             }
 
             if (ChestLock.lock == -1 || ChestLock.lock == holding) {
+                //Cancel if the Player does not have permission to use the command
                 if (!ChestLock.hasPermission(player, "lock")) {
                     player.sendMessage(permissionMsg);
                     return;
