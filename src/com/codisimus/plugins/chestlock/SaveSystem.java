@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Arrays;
 import java.util.LinkedList;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 
@@ -46,10 +47,7 @@ public class SaveSystem {
                 if (split[1].endsWith("~NETHER"))
                     split[1].replace("~NETHER", "");
                 
-                if (world == null)
-                    world = ChestLock.server.getWorld(split[1]);
-                
-                if (world != null) {
+                if (world.getName().equals(split[1])) {
                     String owner = split[0];
                     
                     int x = Integer.parseInt(split[2]);
@@ -58,10 +56,16 @@ public class SaveSystem {
                     Block block = world.getBlockAt(x, y, z);
                     
                     //Create a LockedDoor if the Block is a door
-                    int id = block.getTypeId();
-                    if (ChestLock.isDoor(id)) {
-                        doors.add(new LockedDoor(owner, block, Integer.parseInt(split[5])));
-                        return;
+                    Material material = block.getType();
+                    switch (material) {
+                        case WOOD_DOOR: //Fall through
+                        case WOODEN_DOOR: //Fall through
+                        case IRON_DOOR: //Fall through
+                        case IRON_DOOR_BLOCK:
+                            doors.add(new LockedDoor(owner, block, Integer.parseInt(split[5])));
+                            return;
+                            
+                        default: break;
                     }
                     
                     boolean lockable = true;
@@ -89,15 +93,18 @@ public class SaveSystem {
                     }
                     else {
                         lockable = Boolean.parseBoolean(split[5]);
-                        coOwners = (LinkedList<String>)Arrays.asList(split[6].split(","));
-                        groups = (LinkedList<String>)Arrays.asList(split[7].split(","));
+                        coOwners.addAll(Arrays.asList(split[6].substring(1,
+                                split[6].length() - 1).split(", ")));
+                        groups.addAll(Arrays.asList(split[7].substring(1,
+                                split[6].length() - 1).split(", ")));
                     }
                     
-                    switch (id) {
-                        case 23: dispensers.add(new Safe(owner, block, lockable, coOwners, groups)); break;
-                        case 54: chests.add(new Safe(owner, block, lockable, coOwners, groups)); break;
-                        case 61: furnaces.add(new Safe(owner, block, lockable, coOwners, groups)); break;
-                        case 62: furnaces.add(new Safe(owner, block, lockable, coOwners, groups)); break;
+                    switch (material) {
+                        case DISPENSER: dispensers.add(new Safe(owner, block, lockable, coOwners, groups)); break;
+                        case CHEST: chests.add(new Safe(owner, block, lockable, coOwners, groups)); break;
+                        case FURNACE: furnaces.add(new Safe(owner, block, lockable, coOwners, groups)); break;
+                        case BURNING_FURNACE: furnaces.add(new Safe(owner, block, lockable, coOwners, groups)); break;
+                        
                         default:
                             System.err.println("[ChestLock] Invalid blocktype for "+line);
                             if (autoDelete)
@@ -109,6 +116,8 @@ public class SaveSystem {
                     }
                 }
             }
+
+            bReader.close();
         }
         catch (Exception loadFailed) {
             save = false;
@@ -130,28 +139,19 @@ public class SaveSystem {
             for(Safe safe: chests) {
                 //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
                 bWriter.write(safe.owner.concat(";"));
+                
                 Block chest = safe.block;
                 bWriter.write(chest.getWorld().getName().concat(";"));
                 bWriter.write(chest.getX()+";");
                 bWriter.write(chest.getY()+";");
                 bWriter.write(chest.getZ()+";");
+                
                 bWriter.write(safe.lockable+";");
                 
-                if (safe.coOwners.isEmpty())
-                    bWriter.write("none");
-                else
-                    for (String coOwner: safe.coOwners)
-                        bWriter.write(coOwner.concat(","));
-                bWriter.write(";");
-
-                if (safe.groups.isEmpty())
-                    bWriter.write("none");
-                else
-                    for (String group: safe.groups)
-                        bWriter.write(group.concat(","));
-                bWriter.write(";");
+                bWriter.write(safe.coOwners.toString().concat(";"));
+                bWriter.write(safe.groups.toString().concat(";"));
                 
-                //Write each OwnedChunk on its own line
+                //Write each Chest on its own line
                 bWriter.newLine();
             }
             
@@ -159,28 +159,19 @@ public class SaveSystem {
             for(Safe safe: furnaces) {
                 //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
                 bWriter.write(safe.owner.concat(";"));
+                
                 Block furnace = safe.block;
                 bWriter.write(furnace.getWorld().getName().concat(";"));
                 bWriter.write(furnace.getX()+";");
                 bWriter.write(furnace.getY()+";");
                 bWriter.write(furnace.getZ()+";");
+                
                 bWriter.write(safe.lockable+";");
                 
-                if (safe.coOwners.isEmpty())
-                    bWriter.write("none");
-                else
-                    for (String coOwner: safe.coOwners)
-                        bWriter.write(coOwner.concat(","));
-                bWriter.write(";");
-
-                if (safe.groups.isEmpty())
-                    bWriter.write("none");
-                else
-                    for (String group: safe.groups)
-                        bWriter.write(group.concat(","));
-                bWriter.write(";");
+                bWriter.write(safe.coOwners.toString().concat(";"));
+                bWriter.write(safe.groups.toString().concat(";"));
                 
-                //Write each OwnedChunk on its own line
+                //Write each Furnace on its own line
                 bWriter.newLine();
             }
             
@@ -188,28 +179,19 @@ public class SaveSystem {
             for(Safe safe: dispensers) {
                 //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
                 bWriter.write(safe.owner.concat(";"));
+                
                 Block dispenser = safe.block;
                 bWriter.write(dispenser.getWorld().getName().concat(";"));
                 bWriter.write(dispenser.getX()+";");
                 bWriter.write(dispenser.getY()+";");
                 bWriter.write(dispenser.getZ()+";");
+                
                 bWriter.write(safe.lockable+";");
                 
-                if (safe.coOwners.isEmpty())
-                    bWriter.write("none");
-                else
-                    for (String coOwner: safe.coOwners)
-                        bWriter.write(coOwner.concat(","));
-                bWriter.write(";");
-
-                if (safe.groups.isEmpty())
-                    bWriter.write("none");
-                else
-                    for (String group: safe.groups)
-                        bWriter.write(group.concat(","));
-                bWriter.write(";");
+                bWriter.write(safe.coOwners.toString().concat(";"));
+                bWriter.write(safe.groups.toString().concat(";"));
                 
-                //Write each OwnedChunk on its own line
+                //Write each Dispenser on its own line
                 bWriter.newLine();
             }
             
@@ -224,7 +206,7 @@ public class SaveSystem {
                 bWriter.write(block.getZ()+";");
                 bWriter.write(door.key+";");
                 
-                //Write each OwnedChunk on its own line
+                //Write each Door on its own line
                 bWriter.newLine();
             }
             
@@ -294,8 +276,8 @@ public class SaveSystem {
      * @return The Safe of given Block
      */
     public static Safe findSafe(Block block) {
-        switch (block.getTypeId()) {
-            case 23: //Material == Dispenser
+        switch (block.getType()) {
+            case DISPENSER:
                 //Iterate through all Dispensers to find the one for the Block
                 for (Safe safe: dispensers)
                     if (safe.block.equals(block))
@@ -304,7 +286,7 @@ public class SaveSystem {
                 //Return null because the block is not owned
                 return null;
                 
-            case 54: //Material == Chest
+            case CHEST:
                 //Iterate through all Chests to find the one for the Block
                 for (Safe safe: chests)
                     if (safe.block.equals(block) || safe.isNeighbor(block))
@@ -313,7 +295,7 @@ public class SaveSystem {
                 //Return null because the block is not owned
                 return null;
                 
-            case 61: //Material == Furnace
+            case FURNACE:
                 //Iterate through all Furnaces to find the one for the Block
                 for (Safe safe: furnaces)
                     if (safe.block.equals(block))
@@ -322,7 +304,7 @@ public class SaveSystem {
                 //Return null because the block is not owned
                 return null;
                 
-            case 62: //Material == Furnace
+            case BURNING_FURNACE:
                 //Iterate through all Furnaces to find the one for the Block
                 for (Safe safe: furnaces)
                     if (safe.block.equals(block))
@@ -341,11 +323,11 @@ public class SaveSystem {
      * @param safe The given Safe
      */
     public static void addSafe(Safe safe) {
-        switch (safe.block.getTypeId()) {
-            case 23: dispensers.remove(safe); break;
-            case 54: chests.remove(safe); break;
-            case 61: furnaces.remove(safe); break;
-            case 62: furnaces.remove(safe); break;
+        switch (safe.block.getType()) {
+            case DISPENSER: dispensers.add(safe); break;
+            case CHEST: chests.add(safe); break;
+            case FURNACE: furnaces.add(safe); break;
+            case BURNING_FURNACE: furnaces.add(safe); break;
             default: break;
         }
     }
@@ -356,11 +338,11 @@ public class SaveSystem {
      * @param safe The given Safe
      */
     public static void removeSafe(Safe safe) {
-        switch (safe.block.getTypeId()) {
-            case 23: dispensers.remove(safe); break;
-            case 54: chests.remove(safe); break;
-            case 61: furnaces.remove(safe); break;
-            case 62: furnaces.remove(safe); break;
+        switch (safe.block.getType()) {
+            case DISPENSER: dispensers.remove(safe); break;
+            case CHEST: chests.remove(safe); break;
+            case FURNACE: furnaces.remove(safe); break;
+            case BURNING_FURNACE: furnaces.remove(safe); break;
             default: break;
         }
     }
@@ -389,10 +371,15 @@ public class SaveSystem {
      */
     public static LockedDoor findDoor(Block block) {
         //Return null is the Block is not a Door
-        if (!ChestLock.isDoor(block.getTypeId()))
-            return null;
+        switch (block.getType()) {
+            case WOOD_DOOR: break;
+            case WOODEN_DOOR: break;
+            case IRON_DOOR: break;
+            case IRON_DOOR_BLOCK: break;
+            default: return null;
+        }
         
-        //Iterate through all Furnaces to find the one for the Block
+        //Iterate through all Doors to find the one for the Block
         for (LockedDoor door: doors)
             if (door.block.equals(block) || door.isNeighbor(block))
                 return door;

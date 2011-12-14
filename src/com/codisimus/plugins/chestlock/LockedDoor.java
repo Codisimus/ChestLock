@@ -16,9 +16,9 @@ public class LockedDoor {
     /**
      * Constructs a new LockedDoor
      * 
-     * @param owner The name of the Owner of the door
-     * @param block The Block of the door
-     * @param key The item which must be in the players hand to open the door
+     * @param owner The name of the Owner of the Door
+     * @param block The Block of the Door
+     * @param key The item which must be in the Player's hand to open the Door
      */
     public LockedDoor(String owner, Block block, int key) {
         this.owner = owner;
@@ -27,10 +27,10 @@ public class LockedDoor {
     }
 
     /**
-     * Returns whether the given block is above or below the door Block
+     * Returns whether the given Block is above or below the door Block
      * 
      * @param check The Block of the door
-     * @return true if the given block is above or below the door Block
+     * @return true if the given Block is above or below the door Block
      */
     public boolean isNeighbor(Block block2) {
         //Return false if Blocks are not in the same x-axis
@@ -52,11 +52,11 @@ public class LockedDoor {
     }
 
     /**
-     * Returns true if the key is air or the player is holding the key
-     * Returns true if the player has the admin permission and is holding the global key
+     * Returns true if the key is air or the Player is holding the key
+     * Returns true if the Player has the admin permission and is holding the global key
      * 
-     * @param player The player who may have the key
-     * @return whether the player has the required key
+     * @param player The Player who may have the key
+     * @return true if the Player has the required key
      */
     public boolean hasKey(Player player) {
         //Return true if the door is unlockable

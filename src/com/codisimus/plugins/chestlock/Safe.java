@@ -93,7 +93,7 @@ public class Safe {
 
         //Check to see if the Player is in a group that has CoOwnerShip
         for (String group: groups)
-            if (ChestLock.permissions.getUser(player).inGroup(group))
+            if (ChestLock.permission.playerInGroup(player, group))
                 return true;
         
         //Player is not a CoOwner
