@@ -4,7 +4,6 @@ import com.codisimus.plugins.chestlock.ChestLock;
 import com.codisimus.plugins.chestlock.Econ;
 import com.codisimus.plugins.chestlock.LockedDoor;
 import com.codisimus.plugins.chestlock.Safe;
-import com.codisimus.plugins.chestlock.SaveSystem;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -40,15 +39,19 @@ public class PlayerEventListener extends PlayerListener {
      */
     @Override
     public void onPlayerInteract (PlayerInteractEvent event) {
-        //Return if the Action was arm flailing
-        Block block = event.getClickedBlock();
-        if (block == null)
-            return;
+        //Return if the Action was not clicking a Block
+        Action action = event.getAction();
+        switch (action) {
+            case LEFT_CLICK_BLOCK: break;
+            case RIGHT_CLICK_BLOCK: break;
+            default: return;
+        }
         
+        Block block = event.getClickedBlock();
         Player player = event.getPlayer();
         
         //Check if the Block is a LockedDoor
-        LockedDoor lockedDoor = SaveSystem.findDoor(block);
+        LockedDoor lockedDoor = ChestLock.findDoor(block);
         if (lockedDoor != null) {
             //Cancel if the Player does not have permission to open Locked Doors
             if (!ChestLock.hasPermission(player, "usekey")) {
@@ -90,8 +93,8 @@ public class PlayerEventListener extends PlayerListener {
             
             return;
         }
-
-        //Cancel if the Block is not a correct Safe type
+        
+        //Cancel if the Block is not a Safe type
         Material material = block.getType();
         switch (material) {
             case DISPENSER: break;
@@ -103,13 +106,12 @@ public class PlayerEventListener extends PlayerListener {
         
         //Get the Type of the Block
         String type = material.toString().toLowerCase();
-        if (type.equals("burning_furnace"))
+        if (type.startsWith("b"))
             type = "furnace";
         
         int holding = player.getItemInHand().getTypeId();
-        Action action = event.getAction();
         
-        Safe safe = SaveSystem.findSafe(block);
+        Safe safe = ChestLock.findSafe(block);
         if (safe == null) { //Safe is unowned
             //Return if the Player right clicked the Safe
             if (action.equals(Action.RIGHT_CLICK_BLOCK))
@@ -131,10 +133,10 @@ public class PlayerEventListener extends PlayerListener {
             //Retrieve number of owned Safes if there is a limit
             if (limit > -1)
                 switch (material) {
-                    case DISPENSER: owned = SaveSystem.getOwnedDispensers(player.getName()).size(); break;
-                    case CHEST: owned = SaveSystem.getOwnedChests(player.getName()).size(); break;
-                    case FURNACE: owned = SaveSystem.getOwnedFurnaces(player.getName()).size(); break;
-                    case BURNING_FURNACE: owned = SaveSystem.getOwnedFurnaces(player.getName()).size(); break;
+                    case DISPENSER: owned = ChestLock.getOwnedDispensers(player.getName()).size(); break;
+                    case CHEST: owned = ChestLock.getOwnedChests(player.getName()).size(); break;
+                    case FURNACE: owned = ChestLock.getOwnedFurnaces(player.getName()).size(); break;
+                    case BURNING_FURNACE: owned = ChestLock.getOwnedFurnaces(player.getName()).size(); break;
                     default: return;
                 }
             
@@ -150,7 +152,7 @@ public class PlayerEventListener extends PlayerListener {
                 if (!Econ.charge(player, ownPrice, type))
                     return;
 
-            SaveSystem.addSafe(new Safe(player.getName(), block));
+            ChestLock.addSafe(new Safe(player.getName(), block));
 
             String msg = ownMsg.replaceAll("<blocktype>", type);
             
@@ -159,13 +161,9 @@ public class PlayerEventListener extends PlayerListener {
                         ? Econ.format(0) : Econ.format(lockPrice));
 
             player.sendMessage(msg);
-            SaveSystem.save();
+            ChestLock.save();
             return;
         }
-
-        //Return if the Safe is not lockable
-        if (!safe.lockable)
-            return;
 
         //Check if the Action was opening a Safe
         if (action.equals(Action.RIGHT_CLICK_BLOCK)) {
@@ -183,15 +181,19 @@ public class PlayerEventListener extends PlayerListener {
         if (safe.owner.equalsIgnoreCase(player.getName()) || safe.isCoOwner(player)) {
             //Remove the Safe if the Owner is attempting to disown it
             if (safe.owner.equalsIgnoreCase(player.getName()) && ChestLock.disown == -1 || ChestLock.disown == holding) {
-                SaveSystem.removeSafe(safe);
+                ChestLock.removeSafe(safe);
                 player.sendMessage(disownMsg.replaceAll("<blocktype>", type));
-                SaveSystem.save();
+                ChestLock.save();
                 return;
             }
 
             //Check if the Player is attempting to lock the safe
             if (ChestLock.lock == -1 || ChestLock.lock == holding) {
-                //Cancel if the Player does not have permission to use the command
+                //Return if the Safe is not lockable
+                if (!safe.lockable)
+                    return;
+                
+                //Return if the Player does not have permission to lock
                 if (!ChestLock.hasPermission(player, "lock")) {
                     player.sendMessage(permissionMsg);
                     return;
@@ -208,7 +210,7 @@ public class PlayerEventListener extends PlayerListener {
                 if (!safe.locked)
                     player.sendMessage(unlockMsg.replaceAll("<blocktype>", type));
                 else {
-                    String msg = lockedMsg.replaceAll("<blocktype>", type);
+                    String msg = lockMsg.replaceAll("<blocktype>", type);
             
                     if (Econ.economy != null)
                         msg = msg.replaceAll("<price>", ChestLock.hasPermission(player, "free")
@@ -223,8 +225,26 @@ public class PlayerEventListener extends PlayerListener {
 
         //Check if the Player is an Admin
         if (ChestLock.hasPermission(player, "admin")) {
+            //Check if the Player is requesting info on the safe
+            if (ChestLock.info == holding) {
+                player.sendMessage(type+" owned by: "+safe.owner);
+                return;
+            }
+            
+            //Check if the Player is attempting to disown the safe
+            if (ChestLock.adminDisown == -1 || ChestLock.adminDisown == holding) {
+                ChestLock.removeSafe(safe);
+                player.sendMessage(disownMsg.replaceAll("<blocktype>", type));
+                ChestLock.save();
+                return;
+            }
+            
             //Check if the Player is attempting to lock the safe
             if (ChestLock.admin == -1 || ChestLock.admin == holding) {
+                //Return if the Safe is not lockable
+                if (!safe.lockable)
+                    return;
+
                 safe.locked = !safe.locked;
 
                 if (safe.locked)
@@ -232,20 +252,6 @@ public class PlayerEventListener extends PlayerListener {
                 else
                     player.sendMessage(unlockMsg.replaceAll("<blocktype>", type));
 
-                return;
-            }
-
-            //Check if the Player is requesting info on the safe
-            if (ChestLock.info == holding) {
-                player.sendMessage(type+" owned by: "+safe.owner);
-                return;
-            }
-
-            //Check if the Player is attempting to disown the safe
-            if (ChestLock.adminDisown == -1 || ChestLock.adminDisown == holding) {
-                SaveSystem.removeSafe(safe);
-                player.sendMessage(disownMsg.replaceAll("<blocktype>", type));
-                SaveSystem.save();
                 return;
             }
         }

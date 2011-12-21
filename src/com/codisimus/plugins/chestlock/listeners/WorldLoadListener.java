@@ -1,6 +1,6 @@
 package com.codisimus.plugins.chestlock.listeners;
 
-import com.codisimus.plugins.chestlock.SaveSystem;
+import com.codisimus.plugins.chestlock.ChestLock;
 import org.bukkit.event.world.WorldListener;
 import org.bukkit.event.world.WorldLoadEvent;
 
@@ -18,7 +18,7 @@ public class WorldLoadListener extends WorldListener{
      */
     @Override
     public void onWorldLoad (WorldLoadEvent event) {
-        SaveSystem.load(event.getWorld());
+        ChestLock.loadData(event.getWorld());
     }
 }
 

@@ -1,6 +1,6 @@
 name: ChestLock
 main: com.codisimus.plugins.chestlock.ChestLock
-version: 1.4.4
+version: 1.5.0
 author: Codisimus
 website: www.codisimus.com
 description: Simple locking solution for Chests, Furnaces, Dispensers, and Doors
@@ -17,9 +17,18 @@ permissions:
   chestlock.usekey:
     default: true
     description: Needed to open a locked door
+  chestlock.list.tools:
+    default: true
+    description: Needed to list the available tools (/lock list tools)
   chestlock.list.chests:
     default: true
-    description: Needed to list how many chests/furnaces/dispensers you own and their locations (/lock list chests)
+    description: Needed to list how many chests you own and their locations (/lock list chests)
+  chestlock.list.furnaces:
+    default: true
+    description: Needed to list how many furnaces you own and their locations (/lock list furnaces)
+  chestlock.list.dispensers:
+    default: true
+    description: Needed to list how many dispensers you own and their locations (/lock list dispensers)
   chestlock.list.doors:
     default: true
     description: Needed to list how many doors you own and their keys and locations (/lock list doors)

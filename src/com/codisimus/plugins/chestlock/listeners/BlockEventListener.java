@@ -3,7 +3,6 @@ package com.codisimus.plugins.chestlock.listeners;
 import com.codisimus.plugins.chestlock.ChestLock;
 import com.codisimus.plugins.chestlock.LockedDoor;
 import com.codisimus.plugins.chestlock.Safe;
-import com.codisimus.plugins.chestlock.SaveSystem;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -26,7 +25,7 @@ public class BlockEventListener extends BlockListener {
     @Override
     public void onBlockRedstoneChange(BlockRedstoneEvent event) {
         //Return if the Block is not a LockedDoor
-        LockedDoor lockedDoor = SaveSystem.findDoor(event.getBlock());
+        LockedDoor lockedDoor = ChestLock.findDoor(event.getBlock());
         if (lockedDoor == null)
             return;
         
@@ -50,7 +49,7 @@ public class BlockEventListener extends BlockListener {
         Player player = event.getPlayer();
         
         //Check if the Block is a LockedDoor
-        LockedDoor door = SaveSystem.findDoor(block);
+        LockedDoor door = ChestLock.findDoor(block);
         if (door != null) {
             //Cancel the event if the Player is not the Owner of the LockedDoor and does not have the admin node
             if (!player.getName().equals(door.owner) && !ChestLock.hasPermission(player, "admin")) {
@@ -59,12 +58,12 @@ public class BlockEventListener extends BlockListener {
             }
             
             //Delete the LockedDoor from the saved data
-            SaveSystem.doors.remove(door);
+            ChestLock.doors.remove(door);
             return;
         }
         
         //Return if the Block is not a Safe
-        Safe safe = SaveSystem.findSafe(block);
+        Safe safe = ChestLock.findSafe(block);
         if (safe == null)
             return;
 
@@ -75,7 +74,7 @@ public class BlockEventListener extends BlockListener {
         }
         
         //Delete the Safe from the saved data
-        SaveSystem.removeSafe(safe);
+        ChestLock.removeSafe(safe);
         return;
     }
 }

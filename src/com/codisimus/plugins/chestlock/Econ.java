@@ -10,7 +10,7 @@ import org.bukkit.entity.Player;
  */
 public class Econ {
     public static Economy economy;
-    public static String insufficientFunds;
+    static String insufficientFunds;
 
     /**
      * Charges a Player a given amount of money, which goes to a Player/Bank

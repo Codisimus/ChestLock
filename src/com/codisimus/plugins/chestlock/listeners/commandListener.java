@@ -3,10 +3,11 @@ package com.codisimus.plugins.chestlock.listeners;
 import com.codisimus.plugins.chestlock.ChestLock;
 import com.codisimus.plugins.chestlock.LockedDoor;
 import com.codisimus.plugins.chestlock.Safe;
-import com.codisimus.plugins.chestlock.SaveSystem;
 import com.google.common.collect.Sets;
+import java.io.FileInputStream;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Properties;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -21,11 +22,11 @@ import org.bukkit.inventory.ItemStack;
  * @author Codisimus
  */
 public class CommandListener implements CommandExecutor {
-    public static enum Action { HELP, LIST, COOWNER, NEVER }
-    public static enum ListType { CHESTS, FURNACES, DISPENSERS, DOORS, OWNER, CLEAR }
-    public static enum CoOwnerType { PLAYER, GROUP }
-    public static enum Add_Remove { ADD, REMOVE }
-    public static final HashSet TRANSPARENT = Sets.newHashSet((byte)0, (byte)27,
+    private static enum Action { HELP, LIST, COOWNER, NEVER }
+    private static enum ListType { TOOLS, CHESTS, FURNACES, DISPENSERS, DOORS, OWNER, CLEAR }
+    private static enum CoOwnerType { PLAYER, GROUP }
+    private static enum Add_Remove { ADD, REMOVE }
+    private static final HashSet TRANSPARENT = Sets.newHashSet((byte)0, (byte)27,
             (byte)28, (byte)37, (byte)38, (byte)39, (byte)40, (byte)50, (byte)65,
             (byte)66, (byte)69, (byte)70, (byte)72, (byte)75, (byte)76, (byte)78);
     public static int cornerID;
@@ -119,10 +120,12 @@ public class CommandListener implements CommandExecutor {
                 return true;
                 
             case NEVER:
-                if (args.length == 2 && args[1].equals("true") || args[1].equals("false"))
+                try {
                     setLockable(player, !Boolean.parseBoolean(args[1]));
-                else
+                }
+                catch (Exception notBool) {
                     sendHelp(player);
+                }
                 
                 return true;
                 
@@ -145,8 +148,36 @@ public class CommandListener implements CommandExecutor {
 
         //Determine which list to display
         switch (type) {
-            case CHESTS:
-                LinkedList<Safe> ownedChests = SaveSystem.getOwnedChests(player.getName());
+            case TOOLS: //List the Tools that the Player can use
+                try {
+                    //Load the Config file to read Tool settings
+                    Properties p = new Properties();
+                    FileInputStream fis = new FileInputStream("plugins/ChestLock/config.properties");
+                    p.load(fis);
+                    
+                    player.sendMessage("§2Own Tool:§b "+p.getProperty("OwnTool")+
+                            " §2Lock Tool:§b "+p.getProperty("LockTool")+
+                            " §2Disown Tool:§b "+p.getProperty("DisownTool"));
+
+                    //Only display Admin Tools to Players who can use them
+                    if (ChestLock.hasPermission(player, "admin")) {
+                        player.sendMessage("§2Admin Lock Tool:§b "+p.getProperty("AdminLockTool")+
+                            " §2Admin Info Tool:§b "+p.getProperty("AdminInfoTool"));
+                        player.sendMessage("§2Admin Disown Tool:§b "+p.getProperty("AdminDisownTool")+
+                            " §2Admin Global Key:§b "+p.getProperty("AdminGlobalKey"));
+                    }
+                    
+                    fis.close();
+                }
+                catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+                
+                
+                return;
+                
+            case CHESTS: //List Chests that the Player Owns
+                LinkedList<Safe> ownedChests = ChestLock.getOwnedChests(player.getName());
                 
                 //Display amount of Chests owned
                 String chestMsg = "You own "+ownedChests.size()+" Chests";
@@ -170,8 +201,8 @@ public class CommandListener implements CommandExecutor {
                 
                 return;
                 
-            case FURNACES:
-                LinkedList<Safe> ownedFurnaces = SaveSystem.getOwnedFurnaces(player.getName());
+            case FURNACES: //List Furnaces that the Player Owns
+                LinkedList<Safe> ownedFurnaces = ChestLock.getOwnedFurnaces(player.getName());
                 
                 //Display amount of Furnaces owned
                 String furnaceMsg = "You own "+ownedFurnaces.size()+" Furnaces";
@@ -195,8 +226,8 @@ public class CommandListener implements CommandExecutor {
                 
                 return;
                 
-            case DISPENSERS:
-                LinkedList<Safe> ownedDispensers = SaveSystem.getOwnedDispensers(player.getName());
+            case DISPENSERS: //List Dispensers that the Player Owns
+                LinkedList<Safe> ownedDispensers = ChestLock.getOwnedDispensers(player.getName());
                 
                 //Display amount of Dispensers owned
                 String dispenerMsg = "You own "+ownedDispensers.size()+" Dispensers";
@@ -220,8 +251,8 @@ public class CommandListener implements CommandExecutor {
                 
                 return;
                 
-            case DOORS:
-                LinkedList<LockedDoor> ownedDoors = SaveSystem.getOwnedDoors(player.getName());
+            case DOORS: //List Doors That the Player owns and what their key is
+                LinkedList<LockedDoor> ownedDoors = ChestLock.getOwnedDoors(player.getName());
                 
                 //Display amount of Dispensers owned
                 String doorMsg = "You own "+ownedDoors.size()+" Doors";
@@ -245,18 +276,18 @@ public class CommandListener implements CommandExecutor {
                 
                 return;
                 
-            case OWNER:
+            case OWNER: //List Owner and CoOwners of the target Block
                 Block block = player.getTargetBlock(TRANSPARENT, 10);
                 
                 //Check if the Block is a LockedDoor
-                LockedDoor door = SaveSystem.findDoor(block);
+                LockedDoor door = ChestLock.findDoor(block);
                 if (door != null) {
                     player.sendMessage("Owner: "+door.owner);
                     return;
                 }
                 
                 //Display the Help Page if the Block is not a Safe
-                Safe safe = SaveSystem.findSafe(block);
+                Safe safe = ChestLock.findSafe(block);
                 if (safe == null) {
                     sendHelp(player);
                     return;
@@ -279,7 +310,7 @@ public class CommandListener implements CommandExecutor {
                 
                 return;
                 
-            case CLEAR: SaveSystem.clear(player.getName()); player.sendMessage(clearMsg); return;
+            case CLEAR: ChestLock.clear(player.getName()); player.sendMessage(clearMsg); return;
                 
             default: sendHelp(player); return;
         }
@@ -302,7 +333,7 @@ public class CommandListener implements CommandExecutor {
         
         //Display Help Page if the Block is not a Safe
         Block block = player.getTargetBlock(TRANSPARENT, 10);
-        Safe safe = SaveSystem.findSafe(block);
+        Safe safe = ChestLock.findSafe(block);
         if (safe == null) {
             sendHelp(player);
             return;
@@ -325,7 +356,7 @@ public class CommandListener implements CommandExecutor {
                         else {
                             safe.coOwners.add(coOwner);
                             player.sendMessage(coOwner+" added as a CoOwner");
-                            SaveSystem.save();
+                            ChestLock.save();
                         }
                         
                         return;
@@ -335,7 +366,7 @@ public class CommandListener implements CommandExecutor {
                         if (safe.coOwners.contains(coOwner)) {
                             safe.coOwners.add(coOwner);
                             player.sendMessage(coOwner+" is no longer as a CoOwner");
-                            SaveSystem.save();
+                            ChestLock.save();
                         }
                         else
                             player.sendMessage(coOwner+" is not as a CoOwner");
@@ -354,7 +385,7 @@ public class CommandListener implements CommandExecutor {
                         else {
                             safe.groups.add(coOwner);
                             player.sendMessage(coOwner+" added as a CoOwner");
-                            SaveSystem.save();
+                            ChestLock.save();
                         }
                         
                         return;
@@ -364,7 +395,7 @@ public class CommandListener implements CommandExecutor {
                         if (safe.groups.contains(coOwner)) {
                             safe.groups.add(coOwner);
                             player.sendMessage(coOwner+" is no longer as a CoOwner");
-                            SaveSystem.save();
+                            ChestLock.save();
                         }
                         else
                             player.sendMessage(coOwner+" is not as a CoOwner");
@@ -387,7 +418,7 @@ public class CommandListener implements CommandExecutor {
     public static void setLockable(Player player, boolean bool) {
         //Display Help Page if the target Block is not a Safe
         Block block = player.getTargetBlock(TRANSPARENT, 10);
-        Safe safe = SaveSystem.findSafe(block);
+        Safe safe = ChestLock.findSafe(block);
         if (safe == null) {
             sendHelp(player);
             return;
@@ -417,7 +448,7 @@ public class CommandListener implements CommandExecutor {
             else
                 player.sendMessage(type.concat(" is already unlockable"));
         
-        SaveSystem.save();
+        ChestLock.save();
     }
     
     /**
@@ -444,19 +475,19 @@ public class CommandListener implements CommandExecutor {
         
         ItemStack item = player.getItemInHand();
         int id = item.getTypeId();
-        LockedDoor door = SaveSystem.findDoor(block);
+        LockedDoor door = ChestLock.findDoor(block);
         
         //If the Door is not owned, give ownership to the Player
         if (door == null) {
             //Cancel if the Player has reached their own limit for Doors
             int limit = ChestLock.getOwnLimit(player, "door");
-            if (limit > -1 && SaveSystem.getOwnedDoors(player.getName()).size() >= limit) {
+            if (limit > -1 && ChestLock.getOwnedDoors(player.getName()).size() >= limit) {
                 player.sendMessage(limitMsg.replaceAll("<blocktype>", "door"));
                 return;
             }  
             
-            SaveSystem.doors.add(new LockedDoor(player.getName(), block, id));
-            SaveSystem.save();
+            ChestLock.doors.add(new LockedDoor(player.getName(), block, id));
+            ChestLock.save();
             return;
         }
         
@@ -473,7 +504,7 @@ public class CommandListener implements CommandExecutor {
         else
             player.sendMessage(keySetMsg.replaceAll("<iteminhand>", item.getType().toString().toLowerCase()));
         
-        SaveSystem.save();
+        ChestLock.save();
     }
     
     /**
@@ -486,10 +517,11 @@ public class CommandListener implements CommandExecutor {
         player.sendMessage("§2/lock§b Set item in hand as key to target door");
         player.sendMessage("§2/lock never ['true' or 'false']§b Set if target can be locked");
         player.sendMessage("§2/lock (while holding nothing)§b Make target door unlockable");
-        player.sendMessage("§2/lock coowner group add [Name]§b Add Group as CoOwner of target");
+        player.sendMessage("§2/lock coowner group add [Name]§b Add Group as CoOwner");
         player.sendMessage("§2/lock coowner group remove [Name]§b Remove Group as CoOwner");
         player.sendMessage("§2/lock coowner player add [Name]§b Add Player as CoOwner");
-        player.sendMessage("§2/lock coowner player remove [Name]§b Remove Player as CoOwner");
+        player.sendMessage("§2/lock coowner player remove [Name]§b Remove Player");
+        player.sendMessage("§2/lock list tools§b List Tools for doing various things");
         player.sendMessage("§2/lock list [BlockType]§b List all Blocks you own of given type");
         player.sendMessage("§2/lock list owner§b List the owner/CoOwners of target");
         player.sendMessage("§2/lock list clear§b Disown all chests and doors");
