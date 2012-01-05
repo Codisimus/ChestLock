@@ -29,6 +29,7 @@ public class CommandListener implements CommandExecutor {
     private static final HashSet TRANSPARENT = Sets.newHashSet((byte)0, (byte)27,
             (byte)28, (byte)37, (byte)38, (byte)39, (byte)40, (byte)50, (byte)65,
             (byte)66, (byte)69, (byte)70, (byte)72, (byte)75, (byte)76, (byte)78);
+    public static String command;
     public static int cornerID;
     public static String clearMsg;
     public static String keySetMsg;
@@ -514,17 +515,17 @@ public class CommandListener implements CommandExecutor {
      */
     public static void sendHelp(Player player) {
         player.sendMessage("§e     ChestLock Help Page:");
-        player.sendMessage("§2/lock§b Set item in hand as key to target door");
-        player.sendMessage("§2/lock never ['true' or 'false']§b Set if target can be locked");
-        player.sendMessage("§2/lock (while holding nothing)§b Make target door unlockable");
-        player.sendMessage("§2/lock coowner group add [Name]§b Add Group as CoOwner");
-        player.sendMessage("§2/lock coowner group remove [Name]§b Remove Group as CoOwner");
-        player.sendMessage("§2/lock coowner player add [Name]§b Add Player as CoOwner");
-        player.sendMessage("§2/lock coowner player remove [Name]§b Remove Player");
-        player.sendMessage("§2/lock list tools§b List Tools for doing various things");
-        player.sendMessage("§2/lock list [BlockType]§b List all Blocks you own of given type");
-        player.sendMessage("§2/lock list owner§b List the owner/CoOwners of target");
-        player.sendMessage("§2/lock list clear§b Disown all chests and doors");
+        player.sendMessage("§2/"+command+"§b Set item in hand as key to target door");
+        player.sendMessage("§2/"+command+" never ['true' or 'false']§b Set if target can be locked");
+        player.sendMessage("§2/"+command+" (while holding nothing)§b Make target door unlockable");
+        player.sendMessage("§2/"+command+" coowner group add [Name]§b Add Group as CoOwner");
+        player.sendMessage("§2/"+command+" coowner group remove [Name]§b Remove Group as CoOwner");
+        player.sendMessage("§2/"+command+" coowner player add [Name]§b Add Player as CoOwner");
+        player.sendMessage("§2/"+command+" coowner player remove [Name]§b Remove Player");
+        player.sendMessage("§2/"+command+" list tools§b List Tools for doing various things");
+        player.sendMessage("§2/"+command+" list [BlockType]§b List all Blocks you own of given type");
+        player.sendMessage("§2/"+command+" list owner§b List the owner/CoOwners of target");
+        player.sendMessage("§2/"+command+" list clear§b Disown all chests and doors");
     }
 
     /**

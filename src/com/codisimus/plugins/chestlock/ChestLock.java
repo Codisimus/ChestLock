@@ -89,6 +89,10 @@ public class ChestLock extends JavaPlugin {
         if (economyProvider != null)
             Econ.economy = economyProvider.getProvider();
         
+        //Read the command
+        String commands = this.getDescription().getCommands().toString();
+        CommandListener.command = commands.substring(1, commands.indexOf("="));
+        
         //Register Events
         BlockEventListener blockListener = new BlockEventListener();
         PlayerEventListener playerListener = new PlayerEventListener();
@@ -96,7 +100,7 @@ public class ChestLock extends JavaPlugin {
         pm.registerEvent(Type.REDSTONE_CHANGE, blockListener, Priority.Normal, this);
         pm.registerEvent(Type.BLOCK_BREAK, blockListener, Priority.Normal, this);
         pm.registerEvent(Type.PLAYER_INTERACT, playerListener, Priority.High, this);
-        getCommand("lock").setExecutor(new CommandListener());
+        getCommand(CommandListener.command).setExecutor(new CommandListener());
         
         System.out.println("ChestLock "+this.getDescription().getVersion()+" is enabled!");
     }
