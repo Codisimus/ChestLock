@@ -27,8 +27,9 @@ public class CommandListener implements CommandExecutor {
     private static enum CoOwnerType { PLAYER, GROUP }
     private static enum Add_Remove { ADD, REMOVE }
     private static final HashSet TRANSPARENT = Sets.newHashSet((byte)0, (byte)27,
-            (byte)28, (byte)37, (byte)38, (byte)39, (byte)40, (byte)50, (byte)65,
-            (byte)66, (byte)69, (byte)70, (byte)72, (byte)75, (byte)76, (byte)78);
+            (byte)28, (byte)37, (byte)38, (byte)39, (byte)40, (byte)50, (byte)63,
+            (byte)65, (byte)66, (byte)68, (byte)69, (byte)70, (byte)72, (byte)75,
+            (byte)76, (byte)78);
     public static String command;
     public static int cornerID;
     public static String clearMsg;
@@ -173,7 +174,6 @@ public class CommandListener implements CommandExecutor {
                 catch (Exception ex) {
                     ex.printStackTrace();
                 }
-                
                 
                 return;
                 
