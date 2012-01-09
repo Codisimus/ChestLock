@@ -3,7 +3,7 @@ package com.codisimus.plugins.chestlock;
 import com.codisimus.plugins.chestlock.listeners.WorldLoadListener;
 import com.codisimus.plugins.chestlock.listeners.PlayerEventListener;
 import com.codisimus.plugins.chestlock.listeners.BlockEventListener;
-import com.codisimus.plugins.chestlock.listeners.CmmandListener;
+import com.codisimus.plugins.chestlock.listeners.CommandListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -91,7 +91,7 @@ public class ChestLock extends JavaPlugin {
         
         //Read the command
         String commands = this.getDescription().getCommands().toString();
-        CmmandListener.command = commands.substring(1, commands.indexOf("="));
+        CommandListener.command = commands.substring(1, commands.indexOf("="));
         
         //Register Events
         BlockEventListener blockListener = new BlockEventListener();
@@ -100,7 +100,7 @@ public class ChestLock extends JavaPlugin {
         pm.registerEvent(Type.REDSTONE_CHANGE, blockListener, Priority.Normal, this);
         pm.registerEvent(Type.BLOCK_BREAK, blockListener, Priority.Normal, this);
         pm.registerEvent(Type.PLAYER_INTERACT, playerListener, Priority.High, this);
-        getCommand(CmmandListener.command).setExecutor(new CmmandListener());
+        getCommand(CommandListener.command).setExecutor(new CommandListener());
         
         System.out.println("ChestLock "+this.getDescription().getVersion()+" is enabled!");
     }
@@ -179,15 +179,15 @@ public class ChestLock extends JavaPlugin {
             PlayerEventListener.lockMsg = format(loadValue("LockMessage"));
             PlayerEventListener.lockedMsg = format(loadValue("LockedMessage"));
             PlayerEventListener.unlockMsg = format(loadValue("UnlockMessage"));
-            CmmandListener.keySetMsg = format(loadValue("KeySetMessage"));
+            CommandListener.keySetMsg = format(loadValue("KeySetMessage"));
             PlayerEventListener.invalidKeyMsg = format(loadValue("InvalidKeyMessage"));
-            CmmandListener.unlockableMsg = format(loadValue("UnlockableMessage"));
-            CmmandListener.lockableMsg = format(loadValue("LockableMessage"));
+            CommandListener.unlockableMsg = format(loadValue("UnlockableMessage"));
+            CommandListener.lockableMsg = format(loadValue("LockableMessage"));
             PlayerEventListener.doNotOwnMsg = format(loadValue("DoNotOwnMessage"));
             PlayerEventListener.ownMsg = format(loadValue("OwnMessage"));
             PlayerEventListener.disownMsg = format(loadValue("DisownMessage"));
-            CmmandListener.limitMsg = format(loadValue("limitMessage"));
-            CmmandListener.clearMsg = format(loadValue("ClearMessage"));
+            CommandListener.limitMsg = format(loadValue("limitMessage"));
+            CommandListener.clearMsg = format(loadValue("ClearMessage"));
             Econ.insufficientFunds = format(loadValue("InsufficientFundsMessage"));
             
             fis.close();

@@ -21,7 +21,7 @@ import org.bukkit.inventory.ItemStack;
  * 
  * @author Codisimus
  */
-public class CmmandListener implements CommandExecutor {
+public class CommandListener implements CommandExecutor {
     private static enum Action { HELP, LIST, COOWNER, NEVER }
     private static enum ListType { TOOLS, CHESTS, FURNACES, DISPENSERS, DOORS, OWNER, CLEAR }
     private static enum CoOwnerType { PLAYER, GROUP }

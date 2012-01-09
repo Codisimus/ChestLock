@@ -142,7 +142,7 @@ public class PlayerEventListener extends PlayerListener {
             
             //Return if the Player has reached their limit
             if (owned >= limit) {
-                player.sendMessage(CmmandListener.limitMsg);
+                player.sendMessage(CommandListener.limitMsg);
                 return;
             }
             
