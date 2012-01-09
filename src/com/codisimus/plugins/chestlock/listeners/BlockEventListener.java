@@ -68,13 +68,12 @@ public class BlockEventListener extends BlockListener {
             return;
 
         //Cancel the event if the Player is not the Owner of the Safe
-        if (safe.isOwner(player)) {
+        if (!safe.isOwner(player)) {
             event.setCancelled(true);
             return;
         }
         
         //Delete the Safe from the saved data
         ChestLock.removeSafe(safe);
-        return;
     }
 }
