@@ -218,44 +218,43 @@ public class PlayerEventListener extends PlayerListener {
 
                     player.sendMessage(msg);
                 }
-                
-                return;
             }
         }
-
-        //Check if the Player is an Admin
-        if (ChestLock.hasPermission(player, "admin")) {
-            //Check if the Player is requesting info on the safe
-            if (ChestLock.info == holding) {
-                player.sendMessage(type+" owned by: "+safe.owner);
-                return;
-            }
-            
-            //Check if the Player is attempting to disown the safe
-            if (ChestLock.adminDisown == -1 || ChestLock.adminDisown == holding) {
-                ChestLock.removeSafe(safe);
-                player.sendMessage(disownMsg.replaceAll("<blocktype>", type));
-                ChestLock.save();
-                return;
-            }
-            
-            //Check if the Player is attempting to lock the safe
-            if (ChestLock.admin == -1 || ChestLock.admin == holding) {
-                //Return if the Safe is not lockable
-                if (!safe.lockable)
+        else {
+            //Check if the Player is an Admin
+            if (ChestLock.hasPermission(player, "admin")) {
+                //Check if the Player is requesting info on the safe
+                if (ChestLock.info == holding) {
+                    player.sendMessage(type+" owned by: "+safe.owner);
                     return;
+                }
 
-                safe.locked = !safe.locked;
+                //Check if the Player is attempting to disown the safe
+                if (ChestLock.adminDisown == -1 || ChestLock.adminDisown == holding) {
+                    ChestLock.removeSafe(safe);
+                    player.sendMessage(disownMsg.replaceAll("<blocktype>", type));
+                    ChestLock.save();
+                    return;
+                }
 
-                if (safe.locked)
-                    player.sendMessage(lockMsg.replaceAll("<blocktype>", type));
-                else
-                    player.sendMessage(unlockMsg.replaceAll("<blocktype>", type));
+                //Check if the Player is attempting to lock the safe
+                if (ChestLock.admin == -1 || ChestLock.admin == holding) {
+                    //Return if the Safe is not lockable
+                    if (!safe.lockable)
+                        return;
 
-                return;
+                    safe.locked = !safe.locked;
+
+                    if (safe.locked)
+                        player.sendMessage(lockMsg.replaceAll("<blocktype>", type));
+                    else
+                        player.sendMessage(unlockMsg.replaceAll("<blocktype>", type));
+
+                    return;
+                }
             }
+
+            player.sendMessage(doNotOwnMsg.replaceAll("<blocktype>", type));
         }
-        
-        player.sendMessage(doNotOwnMsg.replaceAll("<blocktype>", type));
     }
 }

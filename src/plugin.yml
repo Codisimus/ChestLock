@@ -1,6 +1,6 @@
 name: ChestLock
 main: com.codisimus.plugins.chestlock.ChestLock
-version: 1.5.2
+version: 1.5.3
 author: Codisimus
 website: www.codisimus.com
 description: Simple locking solution for Chests, Furnaces, Dispensers, and Doors
