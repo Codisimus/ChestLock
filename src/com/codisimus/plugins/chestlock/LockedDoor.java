@@ -33,6 +33,15 @@ public class LockedDoor {
      * @return true if the given Block is above or below the door Block
      */
     public boolean isNeighbor(Block block2) {
+        //Return false if the block is not a Door
+        switch (block.getType()) {
+            case WOOD_DOOR: break;
+            case WOODEN_DOOR: break;
+            case IRON_DOOR: break;
+            case IRON_DOOR_BLOCK: break;
+            default: return false;
+        }
+        
         //Return false if Blocks are not in the same x-axis
         if (block.getX() != block2.getX())
             return false;

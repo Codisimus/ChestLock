@@ -1,6 +1,7 @@
 package com.codisimus.plugins.chestlock;
 
 import net.milkbowl.vault.economy.Economy;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
 /**
@@ -10,7 +11,6 @@ import org.bukkit.entity.Player;
  */
 public class Econ {
     public static Economy economy;
-    static String insufficientFunds;
 
     /**
      * Charges a Player a given amount of money, which goes to a Player/Bank
@@ -20,12 +20,12 @@ public class Econ {
      * @param amount The amount that will be charged
      * @return True if the transaction was successful
      */
-    public static boolean charge(Player player, double amount, String type) {
+    public static boolean charge(Player player, double amount, Material type) {
         String name = player.getName();
         
         //Cancel if the Player cannot afford the transaction
         if (!economy.has(name, amount)) {
-            player.sendMessage(insufficientFunds.replaceAll("<price>", economy.format(amount)).replaceAll("<blocktype>", type));
+            player.sendMessage(ChestLockMessages.getInsufficientFundsMsg(amount, type));
             return false;
         }
         

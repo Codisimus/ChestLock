@@ -1,25 +1,10 @@
 package com.codisimus.plugins.chestlock;
 
-import com.codisimus.plugins.chestlock.listeners.WorldLoadListener;
-import com.codisimus.plugins.chestlock.listeners.PlayerEventListener;
-import com.codisimus.plugins.chestlock.listeners.BlockEventListener;
-import com.codisimus.plugins.chestlock.listeners.CommandListener;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.Properties;
-import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Material;
@@ -27,8 +12,6 @@ import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event.Priority;
-import org.bukkit.event.Event.Type;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -55,8 +38,9 @@ public class ChestLock extends JavaPlugin {
     private static LinkedList<Safe> furnaces = new LinkedList<Safe>();
     private static LinkedList<Safe> dispensers = new LinkedList<Safe>();
     public static LinkedList<LockedDoor> doors = new LinkedList<LockedDoor>();
-    private static boolean save = true;
-    private static boolean autoDelete;
+    private static String dataFolder;
+    private static int disownTime;
+    public static Properties lastDaySeen = new Properties();
 
     @Override
     public void onDisable () {
@@ -71,11 +55,32 @@ public class ChestLock extends JavaPlugin {
         server = getServer();
         pm = server.getPluginManager();
         
+        File dir = this.getDataFolder();
+        if (!dir.isDirectory())
+            dir.mkdir();
+        
+        dataFolder = dir.getPath();
+        
+        dir = new File(dataFolder+"/Chests");
+        if (!dir.isDirectory())
+            dir.mkdir();
+        
+        dir = new File(dataFolder+"/Furnaces");
+        if (!dir.isDirectory())
+            dir.mkdir();
+        
+        dir = new File(dataFolder+"/Dispensers");
+        if (!dir.isDirectory())
+            dir.mkdir();
+        
+        dir = new File(dataFolder+"/Doors");
+        if (!dir.isDirectory())
+            dir.mkdir();
+        
         //Load Config settings
         loadSettings();
         
-        for (World loadedWorld: server.getWorlds())
-            loadData(loadedWorld);
+        loadAll();
         
         //Find Permissions
         RegisteredServiceProvider<Permission> permissionProvider =
@@ -89,61 +94,18 @@ public class ChestLock extends JavaPlugin {
         if (economyProvider != null)
             Econ.economy = economyProvider.getProvider();
         
-        //Read the command
-        String commands = this.getDescription().getCommands().toString();
-        CommandListener.command = commands.substring(1, commands.indexOf("="));
+        //Register the command found in the plugin.yml
+        ChestLockCommand.command = (String)this.getDescription().getCommands().keySet().toArray()[0];
+        getCommand(ChestLockCommand.command).setExecutor(new ChestLockCommand());
         
         //Register Events
-        BlockEventListener blockListener = new BlockEventListener();
-        PlayerEventListener playerListener = new PlayerEventListener();
-        pm.registerEvent(Type.WORLD_LOAD, new WorldLoadListener(), Priority.Monitor, this);
-        pm.registerEvent(Type.REDSTONE_CHANGE, blockListener, Priority.Normal, this);
-        pm.registerEvent(Type.BLOCK_BREAK, blockListener, Priority.Normal, this);
-        pm.registerEvent(Type.PLAYER_INTERACT, playerListener, Priority.High, this);
-        getCommand(CommandListener.command).setExecutor(new CommandListener());
+        pm.registerEvents(new ChestLockListener(), this);
+        
+        //Start the tickListener if there is an AutoDisownTimer
+        if (disownTime > 0)
+            tickListener();
         
         System.out.println("ChestLock "+this.getDescription().getVersion()+" is enabled!");
-    }
-    
-    /**
-     * Moves file from ChestLock.jar to appropriate folder
-     * Destination folder is created if it doesn't exist
-     * 
-     * @param fileName The name of the file to be moved
-     */
-    private void moveFile(String fileName) {
-        try {
-            //Retrieve file from this plugin's .jar
-            JarFile jar = new JarFile("plugins/ChestLock.jar");
-            ZipEntry entry = jar.getEntry(fileName);
-            
-            //Create the destination folder if it does not exist
-            String destination = "plugins/ChestLock/";
-            File file = new File(destination.substring(0, destination.length()-1));
-            if (!file.exists())
-                file.mkdir();
-            
-            File efile = new File(destination, fileName);
-            InputStream in = new BufferedInputStream(jar.getInputStream(entry));
-            OutputStream out = new BufferedOutputStream(new FileOutputStream(efile));
-            byte[] buffer = new byte[2048];
-            
-            //Copy the file
-            while (true) {
-                int nBytes = in.read(buffer);
-                if (nBytes <= 0)
-                    break;
-                out.write(buffer, 0, nBytes);
-            }
-            
-            out.flush();
-            out.close();
-            in.close();
-        }
-        catch (Exception moveFailed) {
-            System.err.println("[ChestLock] File Move Failed!");
-            moveFailed.printStackTrace();
-        }
     }
     
     /**
@@ -151,21 +113,24 @@ public class ChestLock extends JavaPlugin {
      * 
      */
     public void loadSettings() {
-        p = new Properties();
         try {
             //Copy the file from the jar if it is missing
-            if (!new File("plugins/ChestLock/config.properties").exists())
-                moveFile("config.properties");
+            File file = new File(dataFolder+"/config.properties");
+            if (!file.exists())
+                this.saveResource("config.properties", true);
             
-            FileInputStream fis = new FileInputStream("plugins/ChestLock/config.properties");
+            //Load config file
+            p = new Properties();
+            FileInputStream fis = new FileInputStream(file);
             p.load(fis);
             
-            autoDelete = Boolean.parseBoolean(loadValue("AutoDelete"));
             explosionProtection = Boolean.parseBoolean(loadValue("ExplosionProtection"));
-            PlayerEventListener.unlockToOpen = Boolean.parseBoolean(loadValue("UnlockToOpen"));
+            ChestLockListener.unlockToOpen = Boolean.parseBoolean(loadValue("UnlockToOpen"));
             
-            PlayerEventListener.ownPrice = Integer.parseInt(loadValue("CostToOwn"));
-            PlayerEventListener.lockPrice = Integer.parseInt(loadValue("CostToLock"));
+            ChestLockListener.ownPrice = Integer.parseInt(loadValue("CostToOwn"));
+            ChestLockListener.lockPrice = Integer.parseInt(loadValue("CostToLock"));
+            
+            disownTime = Integer.parseInt(loadValue("AutoDisownTimer"));
             
             own = getID(loadValue("OwnTool"));
             lock = getID(loadValue("LockTool"));
@@ -175,20 +140,20 @@ public class ChestLock extends JavaPlugin {
             global = getID(loadValue("AdminGlobalKey"));
             disown = getID(loadValue("DisownTool"));
             
-            PlayerEventListener.permissionMsg = format(loadValue("PermissionMessage"));
-            PlayerEventListener.lockMsg = format(loadValue("LockMessage"));
-            PlayerEventListener.lockedMsg = format(loadValue("LockedMessage"));
-            PlayerEventListener.unlockMsg = format(loadValue("UnlockMessage"));
-            CommandListener.keySetMsg = format(loadValue("KeySetMessage"));
-            PlayerEventListener.invalidKeyMsg = format(loadValue("InvalidKeyMessage"));
-            CommandListener.unlockableMsg = format(loadValue("UnlockableMessage"));
-            CommandListener.lockableMsg = format(loadValue("LockableMessage"));
-            PlayerEventListener.doNotOwnMsg = format(loadValue("DoNotOwnMessage"));
-            PlayerEventListener.ownMsg = format(loadValue("OwnMessage"));
-            PlayerEventListener.disownMsg = format(loadValue("DisownMessage"));
-            CommandListener.limitMsg = format(loadValue("limitMessage"));
-            CommandListener.clearMsg = format(loadValue("ClearMessage"));
-            Econ.insufficientFunds = format(loadValue("InsufficientFundsMessage"));
+            ChestLockMessages.setPermissionMsg(loadValue("PermissionMessage"));
+            ChestLockMessages.setLockMsg(loadValue("LockMessage"));
+            ChestLockMessages.setLockedMsg(loadValue("LockedMessage"));
+            ChestLockMessages.setUnlockMsg(loadValue("UnlockMessage"));
+            ChestLockMessages.setKeySetMsg(loadValue("KeySetMessage"));
+            ChestLockMessages.setInvalidKeyMsg(loadValue("InvalidKeyMessage"));
+            ChestLockMessages.setUnlockableMsg(loadValue("UnlockableMessage"));
+            ChestLockMessages.setLockableMsg(loadValue("LockableMessage"));
+            ChestLockMessages.setDoNotOwnMsg(loadValue("DoNotOwnMessage"));
+            ChestLockMessages.setOwnMsg(loadValue("OwnMessage"));
+            ChestLockMessages.setDisownMsg(loadValue("DisownMessage"));
+            ChestLockMessages.setLimitMsg(loadValue("limitMessage"));
+            ChestLockMessages.setClearMsg(loadValue("ClearMessage"));
+            ChestLockMessages.setInsufficientFundsMsg(loadValue("InsufficientFundsMessage"));
             
             fis.close();
         }
@@ -275,16 +240,17 @@ public class ChestLock extends JavaPlugin {
         return -1;
     }
     
-    /**
-     * Adds various Unicode characters and colors to a string
+    /*
+     * Loads data for all Worlds
      * 
-     * @param string The string being formated
-     * @return The formatted String
      */
-    private static String format(String string) {
-        return string.replaceAll("&", "§").replaceAll("<ae>", "æ").replaceAll("<AE>", "Æ")
-                .replaceAll("<o/>", "ø").replaceAll("<O/>", "Ø")
-                .replaceAll("<a>", "å").replaceAll("<A>", "Å");
+    public static void loadAll() {
+        for (World loadedWorld: server.getWorlds())
+            loadData(loadedWorld);
+        
+        if (chests.isEmpty() && furnaces.isEmpty() && dispensers.isEmpty() && doors.isEmpty())
+            for (World loadedWorld: server.getWorlds())
+                loadOld(loadedWorld);
     }
     
     /**
@@ -295,14 +261,208 @@ public class ChestLock extends JavaPlugin {
      * @param world The World if one is provided
      */
     public static void loadData(World world) {
+        BufferedReader bReader;
+        String line;
+        
+        //Open save file for the Chest data of the given World
+        File file = new File(dataFolder+"/Chests/"+world.getName()+".clc");
+        if (file.exists()) {
+            try {
+                bReader = new BufferedReader(new FileReader(file));
+
+                //Convert each line into data until all lines are read
+                while ((line = bReader.readLine()) != null) {
+                    try {
+                        String[] split = line.split(";");
+
+                        String owner = split[0];
+
+                        int x = Integer.parseInt(split[1]);
+                        int y = Integer.parseInt(split[2]);
+                        int z = Integer.parseInt(split[3]);
+                        Block block = world.getBlockAt(x, y, z);
+
+                        //Skip this data if the Block is not a Chest
+                        if (block.getTypeId() != 54)
+                            continue;
+
+                        LinkedList<String> coOwners = new LinkedList<String>();
+                        LinkedList<String> groups = new LinkedList<String>();
+
+                        boolean lockable = Boolean.parseBoolean(split[4]);
+                        coOwners.addAll(Arrays.asList(split[5].substring(1,
+                                split[5].length() - 1).split(", ")));
+                        groups.addAll(Arrays.asList(split[6].substring(1,
+                                split[6].length() - 1).split(", ")));
+
+                        chests.add(new Safe(owner, block, lockable, coOwners, groups));
+                    }
+                    catch (Exception corruptedData) {
+                        /* Do not load this line */
+                    }
+                }
+
+                bReader.close();
+            }
+            catch (Exception loadFailed) {
+                System.err.println("[ChestLock] Error occurred while loading data");
+                loadFailed.printStackTrace();
+            }
+        }
+        
+        //Open save file for the Furnace data of the given World
+        file = new File(dataFolder+"/Furnaces/"+world.getName()+".clf");
+        if (file.exists()) {
+            try {
+                bReader = new BufferedReader(new FileReader(file));
+
+                //Convert each line into data until all lines are read
+                while ((line = bReader.readLine()) != null) {
+                    try {
+                        String[] split = line.split(";");
+
+                        String owner = split[0];
+
+                        int x = Integer.parseInt(split[1]);
+                        int y = Integer.parseInt(split[2]);
+                        int z = Integer.parseInt(split[3]);
+                        Block block = world.getBlockAt(x, y, z);
+
+                        //Skip this data if the Block is not a Furnace
+                        int id = block.getTypeId();
+                        if (id != 61 && id != 62)
+                            continue;
+
+                        LinkedList<String> coOwners = new LinkedList<String>();
+                        LinkedList<String> groups = new LinkedList<String>();
+
+                        boolean lockable = Boolean.parseBoolean(split[4]);
+                        coOwners.addAll(Arrays.asList(split[5].substring(1,
+                                split[5].length() - 1).split(", ")));
+                        groups.addAll(Arrays.asList(split[6].substring(1,
+                                split[6].length() - 1).split(", ")));
+
+                        furnaces.add(new Safe(owner, block, lockable, coOwners, groups));
+                    }
+                    catch (Exception corruptedData) {
+                        /* Do not load this line */
+                    }
+                }
+
+                bReader.close();
+            }
+            catch (Exception loadFailed) {
+                System.err.println("[ChestLock] Error occurred while loading data");
+                loadFailed.printStackTrace();
+            }
+        }
+        
+        //Open save file for the Dispenser data of the given World
+        file = new File(dataFolder+"/Dispensers/"+world.getName()+".cld");
+        if (file.exists()) {
+            try {
+                bReader = new BufferedReader(new FileReader(file));
+
+                //Convert each line into data until all lines are read
+                while ((line = bReader.readLine()) != null) {
+                    try {
+                        String[] split = line.split(";");
+
+                        String owner = split[0];
+
+                        int x = Integer.parseInt(split[1]);
+                        int y = Integer.parseInt(split[2]);
+                        int z = Integer.parseInt(split[3]);
+                        Block block = world.getBlockAt(x, y, z);
+
+                        //Skip this data if the Block is not a Dispenser
+                        if (block.getTypeId() != 23)
+                            continue;
+
+                        LinkedList<String> coOwners = new LinkedList<String>();
+                        LinkedList<String> groups = new LinkedList<String>();
+
+                        boolean lockable = Boolean.parseBoolean(split[4]);
+                        coOwners.addAll(Arrays.asList(split[5].substring(1,
+                                split[5].length() - 1).split(", ")));
+                        groups.addAll(Arrays.asList(split[6].substring(1,
+                                split[6].length() - 1).split(", ")));
+
+                        dispensers.add(new Safe(owner, block, lockable, coOwners, groups));
+                    }
+                    catch (Exception corruptedData) {
+                        /* Do not load this line */
+                    }
+                }
+
+                bReader.close();
+            }
+            catch (Exception loadFailed) {
+                System.err.println("[ChestLock] Error occurred while loading data");
+                loadFailed.printStackTrace();
+            }
+        }
+        
+        //Open save file for the Door data of the given World
+        file = new File(dataFolder+"/Doors/"+world.getName()+".cldr");
+        if (file.exists()) {
+            try {
+                bReader = new BufferedReader(new FileReader(file));
+
+                //Convert each line into data until all lines are read
+                while ((line = bReader.readLine()) != null) {
+                    try {
+                        String[] split = line.split(";");
+
+                        String owner = split[0];
+
+                        int x = Integer.parseInt(split[1]);
+                        int y = Integer.parseInt(split[2]);
+                        int z = Integer.parseInt(split[3]);
+                        Block block = world.getBlockAt(x, y, z);
+
+                        //Skip this data if the Block is not a Door
+                        switch (block.getType()) {
+                            case WOOD_DOOR: break;
+                            case WOODEN_DOOR: break;
+                            case IRON_DOOR: break;
+                            case IRON_DOOR_BLOCK: break;
+                            default: continue;
+                        }
+
+                        doors.add(new LockedDoor(owner, block, Integer.parseInt(split[4])));
+                    }
+                    catch (Exception corruptedData) {
+                        /* Do not load this line */
+                    }
+                }
+
+                bReader.close();
+            }
+            catch (Exception loadFailed) {
+                System.err.println("[ChestLock] Error occurred while loading data");
+                loadFailed.printStackTrace();
+            }
+        }
+    }
+    
+    /**
+     * Reads save file to load ChestLock data
+     * Loads only data for specific World if one is provided
+     * Saving is turned off (or line is deleted) if an error occurs
+     * 
+     * @param world The World if one is provided
+     */
+    public static void loadOld(World world) {
         try {
             //Open save file in BufferedReader
-            new File("plugins/ChestLock").mkdir();
-            new File("plugins/ChestLock/chestlock.save").createNewFile();
-            BufferedReader bReader = new BufferedReader(new FileReader("plugins/ChestLock/chestlock.save"));
+            File file = new File(dataFolder.concat("/chestlock.save"));
+            if (!file.exists())
+                return;
+            BufferedReader bReader = new BufferedReader(new FileReader(file));
 
             //Convert each line into data until all lines are read
-            String line = "";
+            String line;
             while ((line = bReader.readLine()) != null) {
                 String[] split = line.split(";");
                 
@@ -343,8 +503,8 @@ public class ChestLock extends JavaPlugin {
                                 coOwnerList = coOwnerList.substring(9);
                             else
                                 coOwnerList = coOwnerList.replaceAll(",any,", ",");
-                            LinkedList<String> tempList = (LinkedList<String>)Arrays.asList(coOwnerList.split(","));
-                            for (String coOwner: tempList)
+                            
+                            for (String coOwner: coOwnerList.split(","))
                                 if (coOwner.startsWith("player:"))
                                     coOwners.add(coOwner.substring(7));
                                 else if (coOwner.startsWith("group:"))
@@ -369,12 +529,6 @@ public class ChestLock extends JavaPlugin {
                         
                         default:
                             System.err.println("[ChestLock] Invalid blocktype for "+line);
-                            if (autoDelete)
-                                System.err.println("[ChestLock] AutoDelete set to true, errored data deleted");
-                            else {
-                                save = false;
-                                System.err.println("[ChestLock] Saving turned off to prevent loss of data");
-                            }
                     }
                 }
             }
@@ -382,107 +536,160 @@ public class ChestLock extends JavaPlugin {
             bReader.close();
         }
         catch (Exception loadFailed) {
-            save = false;
             System.err.println("[ChestLock] Load failed, saving turned off to prevent loss of data");
             loadFailed.printStackTrace();
         }
     }
     
     /**
-     * Writes data to save file
-     * Old file is overwritten
+     * Saves data for all Worlds
+     * 
      */
-    public static void save() {
-        //Cancel if saving is turned off
-        if (!save) {
-            System.out.println("[ChestLock] Warning! Data is not being saved.");
-            return;
-        }
+    public static void saveAll() {
+        for (World world: server.getWorlds())
+            save(world);
+    }
+    
+    /**
+     * Saves data for the given World
+     * Old files are overwritten
+     */
+    public static void save(World world) {
+        BufferedWriter bWriter;
+        File file;
         
         try {
-            //Open save file for writing data
-            BufferedWriter bWriter = new BufferedWriter(new FileWriter("plugins/ChestLock/chestlock.save"));
-            
-            //Write all Chest data to file
-            for(Safe safe: chests) {
-                //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
-                bWriter.write(safe.owner.concat(";"));
+            if (!chests.isEmpty()) {
+                file = new File(dataFolder+"/Chests/"+world.getName()+".clc");
+                if (!file.exists())
+                    file.createNewFile();
                 
-                Block chest = safe.block;
-                bWriter.write(chest.getWorld().getName().concat(";"));
-                bWriter.write(chest.getX()+";");
-                bWriter.write(chest.getY()+";");
-                bWriter.write(chest.getZ()+";");
+                //Open save file for writing data
+                bWriter = new BufferedWriter(new FileWriter(file));
                 
-                bWriter.write(safe.lockable+";");
+                //Write all Chest data to file that pertains to the given World
+                for (Safe safe: chests)
+                    if (safe.block.getWorld().equals(world)) {
+                        //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;"
+                        bWriter.write(safe.owner.concat(";"));
+
+                        bWriter.write(safe.block.getX()+";");
+                        bWriter.write(safe.block.getY()+";");
+                        bWriter.write(safe.block.getZ()+";");
+
+                        bWriter.write(safe.lockable+";");
+
+                        bWriter.write(safe.coOwners.toString().concat(";"));
+                        bWriter.write(safe.groups.toString().concat(";"));
+
+                        //Write each Chest on its own line
+                        bWriter.newLine();
+                    }
                 
-                bWriter.write(safe.coOwners.toString().concat(";"));
-                bWriter.write(safe.groups.toString().concat(";"));
-                
-                //Write each Chest on its own line
-                bWriter.newLine();
+                bWriter.close();
             }
             
-            //First write all Furnace data to file
-            for(Safe safe: furnaces) {
-                //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
-                bWriter.write(safe.owner.concat(";"));
+            if (!furnaces.isEmpty()) {
+                file = new File(dataFolder+"/Furnaces/"+world.getName()+".clf");
+                if (!file.exists())
+                    file.createNewFile();
                 
-                Block furnace = safe.block;
-                bWriter.write(furnace.getWorld().getName().concat(";"));
-                bWriter.write(furnace.getX()+";");
-                bWriter.write(furnace.getY()+";");
-                bWriter.write(furnace.getZ()+";");
+                //Open save file for writing data
+                bWriter = new BufferedWriter(new FileWriter(file));
                 
-                bWriter.write(safe.lockable+";");
+                //Write all Furnace data to file that pertains to the given World
+                for (Safe safe: furnaces)
+                    if (safe.block.getWorld().equals(world)) {
+                        //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;"
+                        bWriter.write(safe.owner.concat(";"));
+
+                        bWriter.write(safe.block.getX()+";");
+                        bWriter.write(safe.block.getY()+";");
+                        bWriter.write(safe.block.getZ()+";");
+
+                        bWriter.write(safe.lockable+";");
+
+                        bWriter.write(safe.coOwners.toString().concat(";"));
+                        bWriter.write(safe.groups.toString().concat(";"));
+
+                        //Write each Furnace on its own line
+                        bWriter.newLine();
+                    }
                 
-                bWriter.write(safe.coOwners.toString().concat(";"));
-                bWriter.write(safe.groups.toString().concat(";"));
-                
-                //Write each Furnace on its own line
-                bWriter.newLine();
+                bWriter.close();
             }
             
-            //First write all Dispenser data to file
-            for(Safe safe: dispensers) {
-                //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;
-                bWriter.write(safe.owner.concat(";"));
+            if (!dispensers.isEmpty()) {
+                file = new File(dataFolder+"/Dispensers/"+world.getName()+".cld");
+                if (!file.exists())
+                    file.createNewFile();
                 
-                Block dispenser = safe.block;
-                bWriter.write(dispenser.getWorld().getName().concat(";"));
-                bWriter.write(dispenser.getX()+";");
-                bWriter.write(dispenser.getY()+";");
-                bWriter.write(dispenser.getZ()+";");
+                //Open save file for writing data
+                bWriter = new BufferedWriter(new FileWriter(file));
                 
-                bWriter.write(safe.lockable+";");
+                //Write all Dispenser data to file that pertains to the given World
+                for (Safe safe: dispensers)
+                    if (safe.block.getWorld().equals(world)) {
+                        //Write data in format "owner;x;y;z;lockable;coOwner1,coOwner2,...;group1,group2,...;"
+                        bWriter.write(safe.owner.concat(";"));
+
+                        bWriter.write(safe.block.getX()+";");
+                        bWriter.write(safe.block.getY()+";");
+                        bWriter.write(safe.block.getZ()+";");
+
+                        bWriter.write(safe.lockable+";");
+
+                        bWriter.write(safe.coOwners.toString().concat(";"));
+                        bWriter.write(safe.groups.toString().concat(";"));
+
+                        //Write each Dispenser on its own line
+                        bWriter.newLine();
+                    }
                 
-                bWriter.write(safe.coOwners.toString().concat(";"));
-                bWriter.write(safe.groups.toString().concat(";"));
-                
-                //Write each Dispenser on its own line
-                bWriter.newLine();
+                bWriter.close();
             }
             
-            //First write all Door data to file
-            for(LockedDoor door: doors) {
-                //Write data in format "owner;x;y;z;key;
-                bWriter.write(door.owner.concat(";"));
-                Block block = door.block;
-                bWriter.write(block.getWorld().getName()+";");
-                bWriter.write(block.getX()+";");
-                bWriter.write(block.getY()+";");
-                bWriter.write(block.getZ()+";");
-                bWriter.write(door.key+";");
+            if (!doors.isEmpty()) {
+                file = new File(dataFolder+"/Doors/"+world.getName()+".cldr");
+                if (!file.exists())
+                    file.createNewFile();
                 
-                //Write each Door on its own line
-                bWriter.newLine();
+                //Open save file for writing data
+                bWriter = new BufferedWriter(new FileWriter(file));
+                
+                //Write all Door data to file that pertains to the given World
+                for (LockedDoor door: doors)
+                    if (door.block.getWorld().equals(world)) {
+                        //Write data in format "owner;x;y;z;key;"
+                        bWriter.write(door.owner.concat(";"));
+                        Block block = door.block;
+                        bWriter.write(block.getX()+";");
+                        bWriter.write(block.getY()+";");
+                        bWriter.write(block.getZ()+";");
+                        bWriter.write(door.key+";");
+
+                        //Write each Door on its own line
+                        bWriter.newLine();
+                    }
+                
+                bWriter.close();
             }
-            
-            bWriter.close();
         }
         catch (Exception saveFailed) {
             System.err.println("[ChestLock] Save failed!");
             saveFailed.printStackTrace();
+        }
+    }
+    
+    /**
+     * Writes the Map of last seen data to the save file
+     * Old file is over written
+     */
+    public static void saveLastSeen() {
+        try {
+            lastDaySeen.store(new FileOutputStream(dataFolder.concat("/lastseen.properties")), null);
+        }
+        catch (Exception ex) {
         }
     }
     
@@ -596,8 +803,10 @@ public class ChestLock extends JavaPlugin {
             case CHEST: chests.add(safe); break;
             case FURNACE: furnaces.add(safe); break;
             case BURNING_FURNACE: furnaces.add(safe); break;
-            default: break;
+            default: return;
         }
+        
+        save(safe.block.getWorld());
     }
     
     /**
@@ -611,8 +820,10 @@ public class ChestLock extends JavaPlugin {
             case CHEST: chests.remove(safe); break;
             case FURNACE: furnaces.remove(safe); break;
             case BURNING_FURNACE: furnaces.remove(safe); break;
-            default: break;
+            default: return;
         }
+        
+        save(safe.block.getWorld());
     }
     
     /**
@@ -657,6 +868,40 @@ public class ChestLock extends JavaPlugin {
     }
     
     /**
+     * Returns the number of the current day in the AD time period
+     * 
+     * @return The number of the current day in the AD time period
+     */
+    public static int getDayAD() {
+        Calendar calendar = Calendar.getInstance();
+        int yearAD = calendar.get(Calendar.YEAR);
+        int dayOfYear = calendar.get(Calendar.DAY_OF_YEAR);
+        return (int)((yearAD - 1) * 365.4) + dayOfYear;
+    }
+    
+    /**
+     * Checks for Players who have not logged on within the given amount of time
+     * These Players will have their Safes/Doors automatically disowned
+     */
+    public void tickListener() {
+        //Repeat every day
+    	server.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+            @Override
+    	    public void run() {
+                int cutoffDay = getDayAD() - disownTime;
+                
+                for (String key: lastDaySeen.stringPropertyNames())
+                    if (Integer.parseInt(lastDaySeen.getProperty(key)) < cutoffDay) {
+                        System.out.println("[ChestLock] Disowning Chests that are owned by "+key);
+                        clear(key);
+                        lastDaySeen.remove(key);
+                        saveLastSeen();
+                    }
+    	    }
+    	}, 0L, 1728000L);
+    }
+    
+    /**
      * Removes the LockedDoors/Safes that are owned by the given Player
      * 
      * @param player The name of the Player
@@ -686,6 +931,6 @@ public class ChestLock extends JavaPlugin {
             if (door.owner.equals(player))
                 doors.remove(door);
         
-        save();
+        saveAll();
     }
 }
