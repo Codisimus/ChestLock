@@ -427,6 +427,8 @@ public class ChestLock extends JavaPlugin {
                             case WOODEN_DOOR: break;
                             case IRON_DOOR: break;
                             case IRON_DOOR_BLOCK: break;
+                            case TRAP_DOOR: break;
+                            case FENCE_GATE: break;
                             default: continue;
                         }
 
@@ -483,7 +485,9 @@ public class ChestLock extends JavaPlugin {
                         case WOOD_DOOR: //Fall through
                         case WOODEN_DOOR: //Fall through
                         case IRON_DOOR: //Fall through
-                        case IRON_DOOR_BLOCK:
+                        case IRON_DOOR_BLOCK: //Fall through
+                        case TRAP_DOOR: //Fall through
+                        case FENCE_GATE:
                             doors.add(new LockedDoor(owner, block, Integer.parseInt(split[5])));
                             return;
                             
@@ -855,6 +859,8 @@ public class ChestLock extends JavaPlugin {
             case WOODEN_DOOR: break;
             case IRON_DOOR: break;
             case IRON_DOOR_BLOCK: break;
+            case TRAP_DOOR: break;
+            case FENCE_GATE: break;
             default: return null;
         }
         

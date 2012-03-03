@@ -482,17 +482,13 @@ public class ChestLockCommand implements CommandExecutor {
             }  
             
             ChestLock.doors.add(new LockedDoor(player.getName(), block, id));
-            ChestLock.save(block.getWorld());
-            return;
         }
-        
-        //Cancel if the Player is niether the Owner nor an Admin
-        if (!door.owner.equals(player.getName()) && !ChestLock.hasPermission(player, "admin")) {
+        else if (!door.owner.equals(player.getName()) && !ChestLock.hasPermission(player, "admin")) {
             player.sendMessage(ChestLockMessages.getDoNotOwnMsg(block.getType()));
             return;
         }
-
-        door.key = id;
+        else
+            door.key = id;
 
         if (id == 0)
             player.sendMessage(ChestLockMessages.getUnlockableMsg(block.getType()));
